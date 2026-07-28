@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Video, VideoOff, Mic, MicOff, Play, CheckCircle, 
-  Clock, AlertCircle, RefreshCw, ChevronRight, Activity, Loader2
+  Clock, AlertCircle, RefreshCw, ChevronRight, Activity, Loader2, Brain, Square
 } from 'lucide-react';
 
 function EvaluateContent() {
@@ -27,12 +27,14 @@ function EvaluateContent() {
   const [cameraError, setCameraError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Session State
+  // Pre-CAS Recording Settings & Timer States
   const [currentStep, setCurrentStep] = useState(1);
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes per question
-  const [isRecording, setIsRecording] = useState(false);
+  const [phase, setPhase] = useState('prep'); // 'prep' | 'recording' | 'review'
+  const [prepDuration, setPrepDuration] = useState(30); // Thinking time in seconds (e.g. 30s)
+  const [responseLimit, setResponseLimit] = useState(60); // Max response time: 30s | 60s | 90s
+  const [timeLeft, setTimeLeft] = useState(30);
 
-  // Load context & generate comprehensive 20-question suite
+  // Load context & generate comprehensive 20 Pre-CAS Questions
   useEffect(() => {
     const uni = universityParam || localStorage.getItem('target_university') || localStorage.getItem('selected_university') || 'Target University';
     const course = courseParam || localStorage.getItem('target_course') || localStorage.getItem('selected_course') || 'Selected Program';
@@ -40,45 +42,45 @@ function EvaluateContent() {
     setTargetUni(uni);
     setTargetCourse(course);
 
-    const fullQuestionSuite = [
-      // 1. Personal & Academic Introduction (1-4)
-      { id: 1, title: "Please introduce yourself and share a brief summary of your educational background.", category: "Introduction" },
-      { id: 2, title: `What motivated you to apply for ${course}?`, category: "Academic Focus" },
-      { id: 3, title: "How does this degree build upon your prior studies or work experience?", category: "Academic Background" },
-      { id: 4, title: "What specific subject or specialization within this program interests you most?", category: "Academic Focus" },
+    const preCasQuestions = [
+      // 1. Personal & Academic Background (1-4)
+      { id: 1, title: "Please state your full name, date of birth, and summarize your highest academic qualification.", category: "Pre-CAS Credibility" },
+      { id: 2, title: `Why did you choose to study ${course} instead of continuing studies in your home country?`, category: "Academic Intent" },
+      { id: 3, title: "If you have any study gaps, please explain the activities or employment during that period.", category: "Background & Gaps" },
+      { id: 4, title: "How does your academic background prepare you for the modules in this course?", category: "Academic Preparedness" },
 
-      // 2. University & Destination Selection (5-8)
-      { id: 5, title: `Why did you choose ${uni} specifically over other institutions offering similar programs?`, category: "University Choice" },
-      { id: 6, title: "What key features, faculty, or research facilities attracted you to this institution?", category: "University Choice" },
-      { id: 7, title: "Why do you prefer studying this program abroad rather than in your home country?", category: "Study Destination" },
-      { id: 8, title: "How did you learn about this program and university?", category: "Application Context" },
+      // 2. University Choice & Location (5-8)
+      { id: 5, title: `Why did you choose ${uni} specifically over other universities in the UK/abroad?`, category: "University Research" },
+      { id: 6, title: "Where is your target campus located, and what living arrangements have you planned?", category: "Campus & Accommodation" },
+      { id: 7, title: "Name at least three specific modules from your chosen course and explain why they interest you.", category: "Course Knowledge" },
+      { id: 8, title: "Who is the head of the department or lead tutor for your program, if known, or how is the course evaluated?", category: "Course Knowledge" },
 
-      // 3. Program Preparedness & Competencies (9-12)
-      { id: 9, title: "Describe a relevant academic or technical project you completed recently.", category: "Academic Preparedness" },
-      { id: 10, title: "How do you handle demanding academic workloads or tight deadlines?", category: "Personal Traits" },
-      { id: 11, title: "Describe a challenge you faced during a team project and how you resolved it.", category: "Problem Solving" },
-      { id: 12, title: "What academic skills or knowledge do you need to improve before starting classes?", category: "Self Evaluation" },
+      // 3. Financial Capability & Sponsorship (9-12)
+      { id: 9, title: "What is the total tuition fee for your course, and how much deposit have you paid?", category: "Financial Verification" },
+      { id: 10, title: "Who is funding your education, and what is their official occupation and annual income?", category: "Sponsorship Details" },
+      { id: 11, title: "What are your estimated monthly living costs for housing, food, and transport during your studies?", category: "Financial Awareness" },
+      { id: 12, title: "Are you aware of the visa restrictions regarding work hours for international students?", category: "Immigration Rules" },
 
-      // 4. Financial Plan & Sponsorship (13-16)
-      { id: 13, title: "How do you plan to finance your tuition fees and living expenses throughout your studies?", category: "Financial Plan" },
-      { id: 14, title: "Who is sponsoring your education, and what is their primary source of income?", category: "Financial Plan" },
-      { id: 15, title: "Have you secured or applied for any scholarships or financial aid?", category: "Financial Plan" },
-      { id: 16, title: "Do you have an accurate estimate of your living expenses while pursuing this degree?", category: "Financial Awareness" },
+      // 4. Career Progression & Future Intentions (13-16)
+      { id: 13, title: "What specific position or job role do you intend to pursue immediately after graduation?", category: "Career Goals" },
+      { id: 14, title: "Name 2 to 3 target employers in your home country where you plan to apply after completing this degree.", category: "Career Goals" },
+      { id: 15, title: "What starting salary do you expect to earn in your home country upon completing this program?", category: "ROI & Career Goals" },
+      { id: 16, title: "How will the return on investment (ROI) of this degree justify the financial costs incurred?", category: "Career Justification" },
 
-      // 5. Post-Graduation & Long-Term Goals (17-20)
-      { id: 17, title: `What are your immediate career plans after graduating with your degree in ${course}?`, category: "Career Goals" },
-      { id: 18, title: "Where do you see yourself professionally 5 years after completing this program?", category: "Career Goals" },
-      { id: 19, title: "How will the qualification from this institution enhance your career prospects in your home country?", category: "Future Outlook" },
-      { id: 20, title: "Do you have any questions for the evaluation committee regarding your chosen program?", category: "Closing Question" }
+      // 5. Pre-CAS Compliance & Credibility Check (17-20)
+      { id: 17, title: "Do you intend to remain in the host country permanently after your post-study work visa ends?", category: "Immigration Intent" },
+      { id: 18, title: "Have you ever been refused a visa for any country previously? If yes, provide details.", category: "Immigration History" },
+      { id: 19, title: "How will this specific degree set you apart from local graduates in your home job market?", category: "Credibility Check" },
+      { id: 20, title: "Confirm that all financial and academic documents submitted for this application are genuine and authentic.", category: "Pre-CAS Compliance" }
     ];
 
-    setQuestions(fullQuestionSuite);
+    setQuestions(preCasQuestions);
   }, [universityParam, courseParam]);
 
   const totalSteps = questions.length || 20;
-  const currentQuestion = questions[currentStep - 1] || { category: "Loading...", title: "Preparing question..." };
+  const currentQuestion = questions[currentStep - 1] || { category: "Pre-CAS", title: "Loading question..." };
 
-  // 1. Initialize Camera Stream
+  // Initialize Camera Stream
   const startCamera = async () => {
     setIsInitializing(true);
     setCameraError(null);
@@ -135,7 +137,6 @@ function EvaluateContent() {
     }
   };
 
-  // Mount/Unmount camera cleanup
   useEffect(() => {
     startCamera();
     return () => {
@@ -143,29 +144,48 @@ function EvaluateContent() {
     };
   }, []);
 
-  // Session Timer
+  // Pre-CAS Timer Management Phase Control
   useEffect(() => {
     let timer;
-    if (isRecording && timeLeft > 0) {
+    if (timeLeft > 0) {
       timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    } else if (timeLeft === 0) {
+      if (phase === 'prep') {
+        // Preparation period ended -> auto-start recording response
+        setPhase('recording');
+        setTimeLeft(responseLimit);
+      } else if (phase === 'recording') {
+        // Response time limit reached -> stop recording and wait for next question
+        setPhase('review');
+      }
     }
     return () => clearInterval(timer);
-  }, [isRecording, timeLeft]);
+  }, [timeLeft, phase, responseLimit]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const handleStartRecordingEarly = () => {
+    setPhase('recording');
+    setTimeLeft(responseLimit);
+  };
+
+  const handleStopRecording = () => {
+    setPhase('review');
+    setTimeLeft(0);
   };
 
   const handleNextQuestion = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1);
-      setTimeLeft(120);
+      setPhase('prep');
+      setTimeLeft(prepDuration);
     } else {
-      setIsRecording(false);
-      alert("Evaluation session completed!");
+      alert("Pre-CAS Mock Evaluation Completed! Your answers are saved for review.");
     }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -178,7 +198,7 @@ function EvaluateContent() {
           </div>
           <div>
             <span className="text-lg font-semibold tracking-tight text-white block">
-              Aspiraway AI Mock Evaluator
+              Aspiraway Pre-CAS Mock Evaluator
             </span>
             <span className="text-[11px] text-slate-400 font-medium">
               {targetUni} • {targetCourse}
@@ -186,17 +206,47 @@ function EvaluateContent() {
           </div>
         </div>
 
-        {/* Status Pills */}
+        {/* Dynamic Controls & Timer */}
         <div className="flex items-center space-x-6">
+          {/* Response Limit selector */}
+          <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+            <span className="text-slate-400 font-medium">Answer Limit:</span>
+            {[30, 60, 90].map((sec) => (
+              <button
+                key={sec}
+                onClick={() => {
+                  setResponseLimit(sec);
+                  if (phase === 'recording') setTimeLeft(sec);
+                }}
+                className={`px-2 py-0.5 rounded font-mono font-bold transition-all ${
+                  responseLimit === sec
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center space-x-2 text-sm text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
             <Clock className="w-4 h-4 text-indigo-400" />
-            <span>Time Remaining: <strong className="text-white font-mono">{formatTime(timeLeft)}</strong></span>
+            <span>
+              {phase === 'prep' ? 'Thinking Time: ' : 'Recording Time: '}
+              <strong className={`font-mono ${phase === 'recording' ? 'text-red-400' : 'text-amber-400'}`}>
+                {formatTime(timeLeft)}
+              </strong>
+            </span>
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-slate-500'}`} />
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                phase === 'recording' ? 'bg-red-500 animate-pulse' : phase === 'prep' ? 'bg-amber-400 animate-ping' : 'bg-slate-500'
+              }`}
+            />
             <span className="text-xs font-medium uppercase tracking-wider text-slate-300">
-              {isRecording ? 'Recording Live' : 'Standby'}
+              {phase === 'prep' ? 'Thinking Phase' : phase === 'recording' ? 'Recording Live' : 'Response Locked'}
             </span>
           </div>
         </div>
@@ -222,6 +272,20 @@ function EvaluateContent() {
               }`}
             />
 
+            {/* Preparation Overlay */}
+            {phase === 'prep' && cameraActive && !isInitializing && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/70 backdrop-blur-sm z-10 text-center p-6">
+                <Brain className="w-10 h-10 text-amber-400 animate-bounce mb-2" />
+                <h3 className="text-lg font-bold text-white mb-1">Preparation Time</h3>
+                <p className="text-xs text-slate-300 max-w-md mb-4">
+                  Review the question on the right. Formulate your thoughts before recording begins automatically.
+                </p>
+                <div className="text-3xl font-mono font-bold text-amber-400 bg-amber-950/60 px-6 py-2 rounded-xl border border-amber-800/60">
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
+            )}
+
             {/* Loading / Connecting Overlay */}
             {isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm z-10">
@@ -230,7 +294,7 @@ function EvaluateContent() {
               </div>
             )}
 
-            {/* Error or Disabled Camera Overlay */}
+            {/* Error Overlay */}
             {!cameraActive && !isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-center p-6 z-10">
                 <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4 text-slate-400 border border-slate-700">
@@ -254,8 +318,8 @@ function EvaluateContent() {
             {cameraActive && (
               <div className="absolute top-4 left-4 flex items-center space-x-2 pointer-events-none">
                 <span className="bg-slate-950/70 backdrop-blur-md text-xs px-3 py-1 rounded-full text-slate-200 border border-slate-800/80 flex items-center space-x-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span>HD 720p • Live</span>
+                  <span className={`w-2 h-2 rounded-full ${phase === 'recording' ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`} />
+                  <span>Pre-CAS Live • HD 720p</span>
                 </span>
               </div>
             )}
@@ -268,8 +332,8 @@ function EvaluateContent() {
               </div>
             )}
 
-            {/* Floating Camera Control Bar */}
-            <div className="absolute bottom-4 inset-x-0 mx-auto w-max bg-slate-950/80 backdrop-blur-lg border border-slate-800/80 rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-xl">
+            {/* Floating Control Bar */}
+            <div className="absolute bottom-4 inset-x-0 mx-auto w-max bg-slate-950/80 backdrop-blur-lg border border-slate-800/80 rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-xl z-20">
               <button
                 onClick={cameraActive ? stopCamera : startCamera}
                 className={`p-2.5 rounded-xl transition-colors ${
@@ -296,31 +360,39 @@ function EvaluateContent() {
 
               <div className="h-5 w-px bg-slate-800 mx-1" />
 
-              {!isRecording ? (
+              {phase === 'prep' && (
                 <button
-                  onClick={() => setIsRecording(true)}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-2 transition-all shadow-md shadow-indigo-600/30"
+                  onClick={handleStartRecordingEarly}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center space-x-2 transition-all shadow-md shadow-amber-600/30"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Start Recording</span>
+                  <span>Start Recording Now</span>
                 </button>
-              ) : (
+              )}
+
+              {phase === 'recording' && (
                 <button
-                  onClick={() => setIsRecording(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center space-x-2 transition-all"
+                  onClick={handleStopRecording}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center space-x-2 transition-all shadow-md shadow-red-600/30"
                 >
-                  <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
-                  <span>Pause</span>
+                  <Square className="w-4 h-4 fill-current" />
+                  <span>Stop & Save Response</span>
                 </button>
+              )}
+
+              {phase === 'review' && (
+                <span className="text-xs font-medium text-emerald-400 px-3 py-1 bg-emerald-950/60 rounded-lg border border-emerald-800/50">
+                  Response Captured ✓
+                </span>
               )}
             </div>
           </div>
 
-          {/* AI Helper Bar / Real-Time Cue */}
+          {/* Real-Time Guidance */}
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex items-start space-x-3">
             <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
             <p className="text-xs text-slate-300 leading-relaxed">
-              <strong>Tip:</strong> Speak clearly toward your microphone and maintain eye contact with the camera. The Aspiraway AI evaluator will analyze clarity, pace, and structural coherence.
+              <strong>Pre-CAS Tip:</strong> Answer clearly without reading from prepared notes. Immigration officers assess spontaneous fluency, financial clarity, and authentic motivation.
             </p>
           </div>
         </div>
@@ -340,18 +412,27 @@ function EvaluateContent() {
                 </span>
               </div>
 
-              <h2 className="text-lg font-semibold text-white mb-2 leading-snug">
+              <h2 className="text-lg font-semibold text-white mb-3 leading-snug">
                 {currentQuestion.title}
               </h2>
 
               <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                Take up to 2 minutes to respond thoroughly. Click "Next Question" when finished to proceed to the next prompt.
+                {phase === 'prep' 
+                  ? `Thinking phase active (${timeLeft}s remaining). Recording starts automatically.` 
+                  : phase === 'recording'
+                  ? `Recording in progress. Limit set to ${responseLimit} seconds.`
+                  : "Response captured. Click 'Next Question' to proceed."}
               </p>
             </div>
 
             <button
               onClick={handleNextQuestion}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/20"
+              disabled={phase === 'recording'}
+              className={`w-full py-3 rounded-xl font-semibold text-xs transition-all flex items-center justify-center space-x-2 shadow-lg ${
+                phase === 'recording'
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+              }`}
             >
               <span>{currentStep === totalSteps ? 'Complete Session' : 'Next Question'}</span>
               <ChevronRight className="w-4 h-4" />
@@ -416,7 +497,7 @@ export default function EvaluatePage() {
         <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
           <div className="flex items-center space-x-3">
             <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-            <span className="text-sm font-semibold">Loading Aspiraway Evaluator...</span>
+            <span className="text-sm font-semibold">Loading Aspiraway Pre-CAS Evaluator...</span>
           </div>
         </div>
       }
