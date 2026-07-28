@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { 
   Video, VideoOff, Mic, MicOff, Play, CheckCircle, 
   Clock, AlertCircle, RefreshCw, ChevronRight, Activity, Loader2, Brain, Square,
-  GraduationCap, User, Building, BookOpen, Globe, ArrowRight, Phone, MessageSquare, Award, Sparkles, Send
+  GraduationCap, User, Building, BookOpen, Globe, ArrowRight, Phone, MessageSquare, Award, Sparkles
 } from 'lucide-react';
 
 // Aspiraway SVG Logo Component
@@ -24,7 +24,7 @@ function AspirawayLogo() {
   );
 }
 
-// Question Bank Template Generator
+// Dynamic Question Bank Generator
 const generateDynamicQuestions = (studentName, university, course, destination) => {
   const nameStr = studentName ? `, ${studentName}` : '';
   const uniStr = university || 'your selected university';
@@ -131,7 +131,7 @@ function EvaluateContent() {
   const [cameraError, setCameraError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // Pre-CAS Recording Settings & Timer States
+  // Pre-CAS Timer States
   const [currentStep, setCurrentStep] = useState(1);
   const [phase, setPhase] = useState('prep'); // 'prep' | 'recording' | 'review'
   const [prepDuration] = useState(30);
@@ -163,7 +163,7 @@ function EvaluateContent() {
     }
   }, [searchParams]);
 
-  // Function to save lead details to your API / DB / CRM
+  // Function to save lead details to backend
   const saveLeadToDatabase = async (details) => {
     setIsSubmittingLead(true);
     try {
@@ -315,7 +315,7 @@ function EvaluateContent() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Onboarding Lead Capture Screen
+  // Lead Intake Form
   if (!isFormSubmitted) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
@@ -439,7 +439,7 @@ function EvaluateContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative">
-      {/* Top Header Navigation with CTA */}
+      {/* Top Header Navigation with Mentor CTA */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center space-x-4">
           <AspirawayLogo />
@@ -483,15 +483,15 @@ function EvaluateContent() {
             </span>
           </div>
 
-          {/* Mentor Header CTA */}
+          {/* Mentor Header CTA with full URL */}
           <a
-            href="https://aspiraway.com/mentors"
+            href="https://aspiraway.com/connect-with-mentors/"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden lg:flex items-center space-x-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Find a Mentor</span>
+            <span>Connect with Mentors</span>
           </a>
         </div>
       </header>
@@ -499,7 +499,7 @@ function EvaluateContent() {
       {/* Main Content Workspace */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
         
-        {/* Left / Center: Camera Screen & Controls (8 cols) */}
+        {/* Left / Center: Camera Screen & Controls */}
         <div className="lg:col-span-8 flex flex-col space-y-4">
           
           <div className="relative aspect-video bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex items-center justify-center group">
@@ -592,18 +592,18 @@ function EvaluateContent() {
               </div>
             </div>
             <a
-              href="https://aspiraway.com/mentors"
+              href="https://aspiraway.com/connect-with-mentors/"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-all shrink-0 flex items-center space-x-1.5"
             >
-              <span>Book Mentor Review</span>
+              <span>Connect with Mentors</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
 
-        {/* Right Sidebar: Steps & Prompt (4 cols) */}
+        {/* Right Sidebar: Steps & Prompt */}
         <div className="lg:col-span-4 flex flex-col space-y-4">
           
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
@@ -670,7 +670,7 @@ function EvaluateContent() {
 
       </main>
 
-      {/* Completion Modal & Conversion Gateway */}
+      {/* Completion Modal */}
       {showCompletionModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -689,7 +689,7 @@ function EvaluateContent() {
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended Next Steps:</h4>
               
               <a
-                href="https://aspiraway.com/mentors"
+                href="https://aspiraway.com/connect-with-mentors/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start space-x-3 p-3 bg-blue-950/40 hover:bg-blue-900/40 border border-blue-800/50 rounded-xl transition-all group"
@@ -698,7 +698,7 @@ function EvaluateContent() {
                   <User className="w-4 h-4" />
                 </div>
                 <div>
-                  <h5 className="text-xs font-bold text-white">Book a 1-on-1 Mentor Mock Interview</h5>
+                  <h5 className="text-xs font-bold text-white">Connect with Student Mentors</h5>
                   <p className="text-[11px] text-slate-400">Practice live with an experienced student who passed their CAS interview.</p>
                 </div>
               </a>
