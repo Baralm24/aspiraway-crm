@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { 
   Video, VideoOff, Mic, MicOff, Play, CheckCircle, 
   Clock, AlertCircle, RefreshCw, ChevronRight, Activity, Loader2, Brain, Square,
-  GraduationCap, User, Building, BookOpen, Globe, ArrowRight
+  GraduationCap, User, Building, BookOpen, Globe, ArrowRight, Phone, MessageSquare, Award, Sparkles, Send
 } from 'lucide-react';
 
 // Aspiraway SVG Logo Component
@@ -31,7 +31,6 @@ const generateDynamicQuestions = (studentName, university, course, destination) 
   const courseStr = course || 'your chosen program';
   const destStr = destination || 'your destination country';
 
-  // Question Pools with multiple variations per category
   const pools = {
     introduction: [
       `Hello${nameStr}. Please introduce yourself, stating your full name, educational background, and current qualifications.`,
@@ -73,10 +72,8 @@ const generateDynamicQuestions = (studentName, university, course, destination) 
     ]
   };
 
-  // Utility to pick random item from array
   const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  // Construct a randomized 20-question suite
   return [
     { id: 1, title: getRandom(pools.introduction), category: "Introduction & Identity" },
     { id: 2, title: getRandom(pools.courseRationale), category: "Course Choice" },
@@ -108,14 +105,19 @@ const generateDynamicQuestions = (studentName, university, course, destination) 
 function EvaluateContent() {
   const searchParams = useSearchParams();
 
-  // Student Context State
+  // Student Lead Details State
   const [studentDetails, setStudentDetails] = useState({
     name: '',
+    email: '',
+    phone: '',
     university: '',
     course: '',
     destination: 'United Kingdom'
   });
+  
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   // Questions Array
   const [questions, setQuestions] = useState([]);
@@ -132,35 +134,64 @@ function EvaluateContent() {
   // Pre-CAS Recording Settings & Timer States
   const [currentStep, setCurrentStep] = useState(1);
   const [phase, setPhase] = useState('prep'); // 'prep' | 'recording' | 'review'
-  const [prepDuration] = useState(30); // 30s prep time
-  const [responseLimit, setResponseLimit] = useState(60); // 30s | 60s | 90s
+  const [prepDuration] = useState(30);
+  const [responseLimit, setResponseLimit] = useState(60);
   const [timeLeft, setTimeLeft] = useState(30);
 
   // Read URL params or set defaults
   useEffect(() => {
     const nameParam = searchParams.get('name') || '';
-    const uniParam = searchParams.get('university') || searchParams.get('uni') || localStorage.getItem('target_university') || '';
-    const courseParam = searchParams.get('course') || searchParams.get('program') || localStorage.getItem('target_course') || '';
+    const emailParam = searchParams.get('email') || '';
+    const phoneParam = searchParams.get('phone') || '';
+    const uniParam = searchParams.get('university') || searchParams.get('uni') || '';
+    const courseParam = searchParams.get('course') || searchParams.get('program') || '';
     const destParam = searchParams.get('destination') || 'United Kingdom';
 
     if (uniParam && courseParam) {
-      setStudentDetails({
+      const details = {
         name: nameParam,
+        email: emailParam,
+        phone: phoneParam,
         university: uniParam,
         course: courseParam,
         destination: destParam
-      });
+      };
+      setStudentDetails(details);
       setQuestions(generateDynamicQuestions(nameParam, uniParam, courseParam, destParam));
       setIsFormSubmitted(true);
+      saveLeadToDatabase(details);
     }
   }, [searchParams]);
 
-  const handleFormSubmit = (e) => {
+  // Function to save lead details to your API / DB / CRM
+  const saveLeadToDatabase = async (details) => {
+    setIsSubmittingLead(true);
+    try {
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...details,
+          source: 'Pre-CAS Mock Tool',
+          createdAt: new Date().toISOString(),
+        })
+      });
+    } catch (err) {
+      console.log('Lead registration logged locally:', details);
+    } finally {
+      setIsSubmittingLead(false);
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!studentDetails.university || !studentDetails.course) {
       alert("Please enter both your University and Course/Major.");
       return;
     }
+
+    await saveLeadToDatabase(studentDetails);
+
     setQuestions(generateDynamicQuestions(
       studentDetails.name, 
       studentDetails.university, 
@@ -242,7 +273,7 @@ function EvaluateContent() {
 
   // Pre-CAS Timer Management
   useEffect(() => {
-    if (!isFormSubmitted) return;
+    if (!isFormSubmitted || showCompletionModal) return;
 
     let timer;
     if (timeLeft > 0) {
@@ -256,7 +287,7 @@ function EvaluateContent() {
       }
     }
     return () => clearInterval(timer);
-  }, [timeLeft, phase, responseLimit, isFormSubmitted]);
+  }, [timeLeft, phase, responseLimit, isFormSubmitted, showCompletionModal]);
 
   const handleStartRecordingEarly = () => {
     setPhase('recording');
@@ -274,7 +305,7 @@ function EvaluateContent() {
       setPhase('prep');
       setTimeLeft(prepDuration);
     } else {
-      alert("Pre-CAS Mock Interview Completed! Your personalized session has been recorded for evaluation.");
+      setShowCompletionModal(true);
     }
   };
 
@@ -284,31 +315,62 @@ function EvaluateContent() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Render Student Personalization Form if not submitted
+  // Onboarding Lead Capture Screen
   if (!isFormSubmitted) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <AspirawayLogo />
-            <h1 className="text-xl font-bold text-white mt-4">Pre-CAS Mock Evaluator</h1>
+            <h1 className="text-xl font-bold text-white mt-4">Free Pre-CAS Mock Evaluator</h1>
             <p className="text-xs text-slate-400">
-              Customize your interview questions by providing your study application details below.
+              Practice personalized credibility questions for your target university before your official interview.
             </p>
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-4">
             <div>
               <label className="text-xs font-semibold text-slate-300 block mb-1.5 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-blue-400" /> Full Name (Optional)
+                <User className="w-3.5 h-3.5 text-blue-400" /> Full Name *
               </label>
               <input
                 type="text"
+                required
                 placeholder="e.g. Manish Baral"
                 value={studentDetails.name}
                 onChange={(e) => setStudentDetails({ ...studentDetails, name: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@gmail.com"
+                  value={studentDetails.email}
+                  onChange={(e) => setStudentDetails({ ...studentDetails, email: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  WhatsApp Number *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="+977 9800000000"
+                  value={studentDetails.phone}
+                  onChange={(e) => setStudentDetails({ ...studentDetails, phone: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
             </div>
 
             <div>
@@ -357,10 +419,17 @@ function EvaluateContent() {
 
             <button
               type="submit"
+              disabled={isSubmittingLead}
               className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 mt-2"
             >
-              <span>Generate 20-Question Mock Interview</span>
-              <ArrowRight className="w-4 h-4" />
+              {isSubmittingLead ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <span>Start Free 20-Question Mock Interview</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -369,25 +438,25 @@ function EvaluateContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Header Navigation */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative">
+      {/* Top Header Navigation with CTA */}
+      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center space-x-4">
           <AspirawayLogo />
-          <div className="h-5 w-px bg-slate-800" />
-          <div>
+          <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+          <div className="hidden sm:block">
             <span className="text-xs font-bold text-slate-200 block uppercase tracking-wider">
               Pre-CAS Credibility Evaluator
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">
-              {studentDetails.university} • {studentDetails.course}
+            <span className="text-[11px] text-slate-400 font-medium truncate max-w-[200px] block">
+              {studentDetails.university}
             </span>
           </div>
         </div>
 
-        {/* Dynamic Controls & Timers */}
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+        {/* Timers & Header CTAs */}
+        <div className="flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
             <span className="text-slate-400 font-medium">Answer Limit:</span>
             {[30, 60, 90].map((sec) => (
               <button
@@ -407,39 +476,34 @@ function EvaluateContent() {
             ))}
           </div>
 
-          <div className="flex items-center space-x-2 text-sm text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+          <div className="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
             <Clock className="w-4 h-4 text-blue-400" />
-            <span>
-              {phase === 'prep' ? 'Thinking Time: ' : 'Recording Time: '}
-              <strong className={`font-mono ${phase === 'recording' ? 'text-red-400' : 'text-amber-400'}`}>
-                {formatTime(timeLeft)}
-              </strong>
+            <span className="font-mono font-bold text-amber-400">
+              {formatTime(timeLeft)}
             </span>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                phase === 'recording' ? 'bg-red-500 animate-pulse' : phase === 'prep' ? 'bg-amber-400 animate-ping' : 'bg-slate-500'
-              }`}
-            />
-            <span className="text-xs font-medium uppercase tracking-wider text-slate-300">
-              {phase === 'prep' ? 'Thinking Phase' : phase === 'recording' ? 'Recording Live' : 'Response Locked'}
-            </span>
-          </div>
+          {/* Mentor Header CTA */}
+          <a
+            href="https://aspiraway.com/mentors"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden lg:flex items-center space-x-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Find a Mentor</span>
+          </a>
         </div>
       </header>
 
       {/* Main Content Workspace */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
         
-        {/* Left / Center: Camera Screen & Overlay Controls (8 cols) */}
+        {/* Left / Center: Camera Screen & Controls (8 cols) */}
         <div className="lg:col-span-8 flex flex-col space-y-4">
           
-          {/* Main Camera Container */}
           <div className="relative aspect-video bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex items-center justify-center group">
             
-            {/* The Live Video Element */}
             <video
               ref={videoRef}
               autoPlay
@@ -464,121 +528,84 @@ function EvaluateContent() {
               </div>
             )}
 
-            {/* Loading / Connecting Overlay */}
-            {isInitializing && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm z-10">
-                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
-                <p className="text-sm font-medium text-slate-300">Initializing camera feed...</p>
-              </div>
-            )}
-
-            {/* Error Overlay */}
+            {/* Camera Error / Loading Overlay */}
             {!cameraActive && !isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-center p-6 z-10">
-                <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4 text-slate-400 border border-slate-700">
-                  <VideoOff className="w-7 h-7" />
-                </div>
-                <h3 className="text-base font-semibold text-white mb-1">Camera Feed Unavailable</h3>
-                <p className="text-xs text-slate-400 max-w-md mb-4">
-                  {cameraError || "Your webcam is currently disabled or turned off."}
-                </p>
+                <VideoOff className="w-8 h-8 text-slate-500 mb-3" />
+                <h3 className="text-base font-semibold text-white mb-1">Camera Feed Disabled</h3>
                 <button
                   onClick={startCamera}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all flex items-center space-x-2"
+                  className="mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold flex items-center space-x-2"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Retry Camera Stream</span>
+                  <span>Enable Webcam Stream</span>
                 </button>
               </div>
             )}
 
-            {/* Live Visual Indicator Badges on Video */}
-            {cameraActive && (
-              <div className="absolute top-4 left-4 flex items-center space-x-2 pointer-events-none">
-                <span className="bg-slate-950/70 backdrop-blur-md text-xs px-3 py-1 rounded-full text-slate-200 border border-slate-800/80 flex items-center space-x-1.5">
-                  <span className={`w-2 h-2 rounded-full ${phase === 'recording' ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`} />
-                  <span>Pre-CAS Live • HD 720p</span>
-                </span>
-              </div>
-            )}
-
-            {/* Audio Waveform Indicator Bar */}
-            {cameraActive && micActive && (
-              <div className="absolute bottom-16 right-4 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-1">
-                <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <span className="text-xs font-mono text-slate-300">Mic Active</span>
-              </div>
-            )}
-
-            {/* Floating Control Bar */}
+            {/* Control Bar */}
             <div className="absolute bottom-4 inset-x-0 mx-auto w-max bg-slate-950/80 backdrop-blur-lg border border-slate-800/80 rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-xl z-20">
               <button
                 onClick={cameraActive ? stopCamera : startCamera}
-                className={`p-2.5 rounded-xl transition-colors ${
-                  cameraActive 
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' 
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                }`}
-                title={cameraActive ? "Turn Off Camera" : "Turn On Camera"}
+                className="p-2 rounded-xl bg-slate-800 text-slate-200"
               >
-                {cameraActive ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                {cameraActive ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
               </button>
 
-              <button
-                onClick={toggleMic}
-                className={`p-2.5 rounded-xl transition-colors ${
-                  micActive 
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' 
-                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                }`}
-                title={micActive ? "Mute Microphone" : "Unmute Microphone"}
-              >
-                {micActive ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+              <button onClick={toggleMic} className="p-2 rounded-xl bg-slate-800 text-slate-200">
+                {micActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </button>
 
-              <div className="h-5 w-px bg-slate-800 mx-1" />
+              <div className="h-4 w-px bg-slate-800" />
 
               {phase === 'prep' && (
                 <button
                   onClick={handleStartRecordingEarly}
-                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center space-x-2 transition-all shadow-md shadow-amber-600/30"
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold flex items-center space-x-1.5"
                 >
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Start Recording Now</span>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Record Now</span>
                 </button>
               )}
 
               {phase === 'recording' && (
                 <button
                   onClick={handleStopRecording}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center space-x-2 transition-all shadow-md shadow-red-600/30"
+                  className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-semibold flex items-center space-x-1.5"
                 >
-                  <Square className="w-4 h-4 fill-current" />
-                  <span>Stop & Save Response</span>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop & Lock</span>
                 </button>
-              )}
-
-              {phase === 'review' && (
-                <span className="text-xs font-medium text-emerald-400 px-3 py-1 bg-emerald-950/60 rounded-lg border border-emerald-800/50">
-                  Response Captured ✓
-                </span>
               )}
             </div>
           </div>
 
-          {/* Real-Time Guidance */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-300 leading-relaxed">
-              <strong>Pre-CAS Tip:</strong> Speak naturally without reading notes. Interviewers evaluate clear communication, financial understanding, and genuine motivation for studying at {studentDetails.university}.
-            </p>
+          {/* Under-Camera Conversion Banner */}
+          <div className="bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-800/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-600/20 text-blue-400 rounded-lg shrink-0">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Need Official Human Evaluation?</h4>
+                <p className="text-[11px] text-slate-400">Book a 1-on-1 Pre-CAS review with an Aspiraway student mentor.</p>
+              </div>
+            </div>
+            <a
+              href="https://aspiraway.com/mentors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-all shrink-0 flex items-center space-x-1.5"
+            >
+              <span>Book Mentor Review</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
 
-        {/* Right Sidebar: Step Tracker & Prompt (4 cols) */}
+        {/* Right Sidebar: Steps & Prompt (4 cols) */}
         <div className="lg:col-span-4 flex flex-col space-y-4">
           
-          {/* Question Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -586,21 +613,13 @@ function EvaluateContent() {
                   {currentQuestion.category}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
-                  Question {currentStep} of {totalSteps}
+                  {currentStep} / {totalSteps}
                 </span>
               </div>
 
-              <h2 className="text-lg font-semibold text-white mb-3 leading-snug">
+              <h2 className="text-base font-semibold text-white mb-4 leading-snug">
                 {currentQuestion.title}
               </h2>
-
-              <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                {phase === 'prep' 
-                  ? `Thinking phase active (${timeLeft}s remaining). Recording starts automatically.` 
-                  : phase === 'recording'
-                  ? `Recording in progress. Limit set to ${responseLimit} seconds.`
-                  : "Response captured. Click 'Next Question' to proceed."}
-              </p>
             </div>
 
             <button
@@ -612,18 +631,18 @@ function EvaluateContent() {
                   : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
               }`}
             >
-              <span>{currentStep === totalSteps ? 'Complete Session' : 'Next Question'}</span>
+              <span>{currentStep === totalSteps ? 'Finish & See Feedback' : 'Next Question'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Question Progress List */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col max-h-[380px]">
+          {/* Question List Progress */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col max-h-[320px]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 shrink-0">
-              Session Progress ({currentStep}/{totalSteps})
+              Questions Remaining
             </h3>
 
-            <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 custom-scrollbar">
+            <div className="space-y-2 overflow-y-auto pr-1 flex-1 custom-scrollbar">
               {questions.map((q, idx) => {
                 const stepNum = idx + 1;
                 const isCompleted = stepNum < currentStep;
@@ -632,28 +651,15 @@ function EvaluateContent() {
                 return (
                   <div
                     key={q.id}
-                    className={`p-2.5 rounded-xl border transition-all flex items-center justify-between ${
+                    className={`p-2 rounded-xl border text-xs transition-all flex items-center justify-between ${
                       isCurrent
-                        ? 'bg-blue-950/40 border-blue-600/60 text-white'
+                        ? 'bg-blue-950/40 border-blue-600/60 text-white font-medium'
                         : isCompleted
-                        ? 'bg-slate-950/50 border-slate-800/60 text-slate-400'
+                        ? 'bg-slate-950/50 border-slate-800/60 text-slate-500'
                         : 'bg-slate-950/20 border-slate-900 text-slate-600'
                     }`}
                   >
-                    <div className="flex items-center space-x-3 overflow-hidden">
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          isCompleted
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : isCurrent
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : stepNum}
-                      </div>
-                      <span className="text-xs font-medium truncate">{q.title}</span>
-                    </div>
+                    <span className="truncate">{stepNum}. {q.title}</span>
                   </div>
                 );
               })}
@@ -663,20 +669,80 @@ function EvaluateContent() {
         </div>
 
       </main>
+
+      {/* Completion Modal & Conversion Gateway */}
+      {showCompletionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/20">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold text-white mb-1">Pre-CAS Practice Completed!</h2>
+              <p className="text-xs text-slate-400">
+                Great job completing your 20-question practice run for <strong className="text-slate-200">{studentDetails.university}</strong>.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended Next Steps:</h4>
+              
+              <a
+                href="https://aspiraway.com/mentors"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start space-x-3 p-3 bg-blue-950/40 hover:bg-blue-900/40 border border-blue-800/50 rounded-xl transition-all group"
+              >
+                <div className="p-2 bg-blue-600 rounded-lg text-white group-hover:scale-105 transition-transform">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-white">Book a 1-on-1 Mentor Mock Interview</h5>
+                  <p className="text-[11px] text-slate-400">Practice live with an experienced student who passed their CAS interview.</p>
+                </div>
+              </a>
+
+              <a
+                href="https://wa.me/9779800000000?text=Hi%20Aspiraway,%20I%20just%20completed%20my%20Pre-CAS%20mock%20test!"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start space-x-3 p-3 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-800/50 rounded-xl transition-all group"
+              >
+                <div className="p-2 bg-emerald-600 rounded-lg text-white group-hover:scale-105 transition-transform">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-white">Free Visa & Document Advisory</h5>
+                  <p className="text-[11px] text-slate-400">Speak directly with an Aspiraway study advisor on WhatsApp.</p>
+                </div>
+              </a>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowCompletionModal(false);
+                setCurrentStep(1);
+                setPhase('prep');
+                setTimeLeft(prepDuration);
+              }}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all"
+            >
+              Restart Practice Session
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Suspense boundary export for Next.js build requirement
 export default function EvaluatePage() {
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
-          <div className="flex items-center space-x-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span className="text-sm font-semibold">Loading Aspiraway Pre-CAS Evaluator...</span>
-          </div>
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
         </div>
       }
     >
