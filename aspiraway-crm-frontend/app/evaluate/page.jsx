@@ -32,25 +32,50 @@ function EvaluateContent() {
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes per question
   const [isRecording, setIsRecording] = useState(false);
 
-  // Dynamic Question Generation based on real application state
+  // Load context & generate comprehensive 20-question suite
   useEffect(() => {
-    const uni = universityParam || localStorage.getItem('target_university') || localStorage.getItem('selected_university') || 'your chosen university';
-    const course = courseParam || localStorage.getItem('target_course') || localStorage.getItem('selected_course') || 'your chosen program';
+    const uni = universityParam || localStorage.getItem('target_university') || localStorage.getItem('selected_university') || 'Target University';
+    const course = courseParam || localStorage.getItem('target_course') || localStorage.getItem('selected_course') || 'Selected Program';
 
     setTargetUni(uni);
     setTargetCourse(course);
 
-    const dynamicQuestions = [
-      { id: 1, title: `Tell us about yourself and why you chose to study at ${uni}.`, category: "Introduction" },
-      { id: 2, title: `How does your previous background qualify you for ${course}?`, category: "Motivation" },
-      { id: 3, title: `Why did you select ${uni} over other institutions offering ${course}?`, category: "University Choice" },
-      { id: 4, title: `What are your specific career goals after completing ${course}?`, category: "Future Plans" }
+    const fullQuestionSuite = [
+      // 1. Personal & Academic Introduction (1-4)
+      { id: 1, title: "Please introduce yourself and share a brief summary of your educational background.", category: "Introduction" },
+      { id: 2, title: `What motivated you to apply for ${course}?`, category: "Academic Focus" },
+      { id: 3, title: "How does this degree build upon your prior studies or work experience?", category: "Academic Background" },
+      { id: 4, title: "What specific subject or specialization within this program interests you most?", category: "Academic Focus" },
+
+      // 2. University & Destination Selection (5-8)
+      { id: 5, title: `Why did you choose ${uni} specifically over other institutions offering similar programs?`, category: "University Choice" },
+      { id: 6, title: "What key features, faculty, or research facilities attracted you to this institution?", category: "University Choice" },
+      { id: 7, title: "Why do you prefer studying this program abroad rather than in your home country?", category: "Study Destination" },
+      { id: 8, title: "How did you learn about this program and university?", category: "Application Context" },
+
+      // 3. Program Preparedness & Competencies (9-12)
+      { id: 9, title: "Describe a relevant academic or technical project you completed recently.", category: "Academic Preparedness" },
+      { id: 10, title: "How do you handle demanding academic workloads or tight deadlines?", category: "Personal Traits" },
+      { id: 11, title: "Describe a challenge you faced during a team project and how you resolved it.", category: "Problem Solving" },
+      { id: 12, title: "What academic skills or knowledge do you need to improve before starting classes?", category: "Self Evaluation" },
+
+      // 4. Financial Plan & Sponsorship (13-16)
+      { id: 13, title: "How do you plan to finance your tuition fees and living expenses throughout your studies?", category: "Financial Plan" },
+      { id: 14, title: "Who is sponsoring your education, and what is their primary source of income?", category: "Financial Plan" },
+      { id: 15, title: "Have you secured or applied for any scholarships or financial aid?", category: "Financial Plan" },
+      { id: 16, title: "Do you have an accurate estimate of your living expenses while pursuing this degree?", category: "Financial Awareness" },
+
+      // 5. Post-Graduation & Long-Term Goals (17-20)
+      { id: 17, title: `What are your immediate career plans after graduating with your degree in ${course}?`, category: "Career Goals" },
+      { id: 18, title: "Where do you see yourself professionally 5 years after completing this program?", category: "Career Goals" },
+      { id: 19, title: "How will the qualification from this institution enhance your career prospects in your home country?", category: "Future Outlook" },
+      { id: 20, title: "Do you have any questions for the evaluation committee regarding your chosen program?", category: "Closing Question" }
     ];
 
-    setQuestions(dynamicQuestions);
+    setQuestions(fullQuestionSuite);
   }, [universityParam, courseParam]);
 
-  const totalSteps = questions.length || 4;
+  const totalSteps = questions.length || 20;
   const currentQuestion = questions[currentStep - 1] || { category: "Loading...", title: "Preparing question..." };
 
   // 1. Initialize Camera Stream
@@ -152,12 +177,12 @@ function EvaluateContent() {
             A
           </div>
           <div>
-            <span className="text-lg font-semibold tracking-tight text-white block">AI Mock Evaluator</span>
-            {targetUni && (
-              <span className="text-[11px] text-slate-400 font-medium">
-                {targetUni} {targetCourse ? `• ${targetCourse}` : ''}
-              </span>
-            )}
+            <span className="text-lg font-semibold tracking-tight text-white block">
+              Aspiraway AI Mock Evaluator
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium">
+              {targetUni} • {targetCourse}
+            </span>
           </div>
         </div>
 
@@ -295,7 +320,7 @@ function EvaluateContent() {
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex items-start space-x-3">
             <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
             <p className="text-xs text-slate-300 leading-relaxed">
-              <strong>Tip:</strong> Speak clearly toward your microphone and maintain eye contact with the camera. The AI evaluator will analyze clarity, pace, and structural coherence.
+              <strong>Tip:</strong> Speak clearly toward your microphone and maintain eye contact with the camera. The Aspiraway AI evaluator will analyze clarity, pace, and structural coherence.
             </p>
           </div>
         </div>
@@ -315,7 +340,7 @@ function EvaluateContent() {
                 </span>
               </div>
 
-              <h2 className="text-lg font-semibold text-white mb-2">
+              <h2 className="text-lg font-semibold text-white mb-2 leading-snug">
                 {currentQuestion.title}
               </h2>
 
@@ -334,12 +359,12 @@ function EvaluateContent() {
           </div>
 
           {/* Question Progress List */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex-1">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
-              Session Progress
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col max-h-[380px]">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 shrink-0">
+              Session Progress ({currentStep}/{totalSteps})
             </h3>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 custom-scrollbar">
               {questions.map((q, idx) => {
                 const stepNum = idx + 1;
                 const isCompleted = stepNum < currentStep;
@@ -348,7 +373,7 @@ function EvaluateContent() {
                 return (
                   <div
                     key={q.id}
-                    className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
+                    className={`p-2.5 rounded-xl border transition-all flex items-center justify-between ${
                       isCurrent
                         ? 'bg-indigo-950/40 border-indigo-600/60 text-white'
                         : isCompleted
@@ -356,9 +381,9 @@ function EvaluateContent() {
                         : 'bg-slate-950/20 border-slate-900 text-slate-600'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 overflow-hidden">
                       <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                           isCompleted
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                             : isCurrent
@@ -368,7 +393,7 @@ function EvaluateContent() {
                       >
                         {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : stepNum}
                       </div>
-                      <span className="text-xs font-medium line-clamp-1">{q.title}</span>
+                      <span className="text-xs font-medium truncate">{q.title}</span>
                     </div>
                   </div>
                 );
@@ -391,7 +416,7 @@ export default function EvaluatePage() {
         <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
           <div className="flex items-center space-x-3">
             <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-            <span className="text-sm font-semibold">Loading Evaluator Workspace...</span>
+            <span className="text-sm font-semibold">Loading Aspiraway Evaluator...</span>
           </div>
         </div>
       }
