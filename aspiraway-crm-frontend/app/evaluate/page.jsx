@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation'; // To read query params or local storage
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Video, VideoOff, Mic, MicOff, Play, Pause, CheckCircle2,
   Clock, AlertCircle, RefreshCw, ChevronRight, Loader2,
@@ -26,7 +26,7 @@ const BRAND = {
   redSoft: '#FEF2F2',
 };
 
-// Master Question Pool (categorized)
+// Master Question Pool (categorized with dynamic tags)
 const MASTER_QUESTION_POOL = [
   { id: 1, category: 'Introduction', title: 'Tell us about yourself and why you chose to study in the UK.', seconds: 90 },
   { id: 2, category: 'Academic Background', title: 'How does your previous qualification prepare you for {course}?', seconds: 90 },
@@ -36,7 +36,7 @@ const MASTER_QUESTION_POOL = [
   { id: 6, category: 'Career Goals', title: 'What specific career role will you pursue after completing {course} at {university}?', seconds: 90 },
   { id: 7, category: 'Ties to Home Country', title: 'Why do you plan to return home after your studies rather than stay in the UK?', seconds: 90 },
   { id: 8, category: 'Accommodation & Living', title: 'Where do you plan to live while studying at {university}, and what are the expected costs?', seconds: 90 },
-  { id: 9, category: 'Gap Year Explanation', title: 'Can you explain the gap in your education/employment prior to applying for {course}?', seconds: 90 },
+  { id: 9, category: 'Gap Year Explanation', title: 'Can you explain any gaps in your education or work history prior to applying for {course}?', seconds: 90 },
 ];
 
 // Utility to shuffle and pick N random items
@@ -45,9 +45,9 @@ function getRandomQuestions(university, course, count = 5) {
   const targetCourse = course || 'your chosen course';
 
   // Replace placeholders with dynamic context
-  const customizedPool = MASTER_QUESTION_POOL.map(q => ({
+  const customizedPool = MASTER_QUESTION_POOL.map((q) => ({
     ...q,
-    title: q.title.replace(/{university}/g, targetUni).replace(/{course}/g, targetCourse)
+    title: q.title.replace(/{university}/g, targetUni).replace(/{course}/g, targetCourse),
   }));
 
   // Fisher-Yates Shuffle
@@ -60,10 +60,10 @@ function getRandomQuestions(university, course, count = 5) {
   return shuffled.slice(0, count);
 }
 
-export default function EvaluatePage() {
+function EvaluateContent() {
   const searchParams = useSearchParams();
-  
-  // Dynamic session context (e.g. passed from /mock config via URL params or localStorage)
+
+  // Dynamic session context
   const universityParam = searchParams.get('university') || '';
   const courseParam = searchParams.get('course') || '';
 
@@ -72,15 +72,13 @@ export default function EvaluatePage() {
 
   // Initialize shuffled questions on mount
   useEffect(() => {
-    // Check localStorage fallback if URL params aren't present
     const uni = universityParam || localStorage.getItem('target_university') || 'University of Greenwich';
     const crs = courseParam || localStorage.getItem('target_course') || 'MSc Data Science';
-    
-    const shuffledSubset = getRandomQuestions(uni, crs, 5); // Pick 5 randomized questions
+
+    const shuffledSubset = getRandomQuestions(uni, crs, 5);
     setQuestions(shuffledSubset);
   }, [universityParam, courseParam]);
 
-  // Handle active question state safely
   const totalSteps = questions.length;
   const question = questions[currentStep - 1] || { category: 'Loading...', title: 'Loading question...', seconds: 90 };
 
@@ -103,7 +101,7 @@ export default function EvaluatePage() {
     if (question?.seconds) {
       setTimeLeft(question.seconds);
     }
-  }, [currentStep, questions]);
+  }, [currentStep, questions, question]);
 
   // Transcript & AI Feedback
   const [transcript, setTranscript] = useState('');
@@ -326,6 +324,7 @@ export default function EvaluatePage() {
                   <VideoOff className="w-6 h-6" />
                 </div>
                 <h3 className="text-sm font-semibold text-white mb-1">Camera Muted</h3>
+                <p className="text-xs max-w-sm mb-4 leading-relaxed" style={{ color: BRAND.inkSoft }}>{cameraError || 'Webcam feed is currently turned off.'}</p>
                 <button onClick={startCamera} className="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 mt-2" style={{ background: BRAND.gold, color: BRAND.navyDeep }}>
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Re-enable Camera</span>
@@ -339,6 +338,13 @@ export default function EvaluatePage() {
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>HD Live Feed</span>
                 </span>
+              </div>
+            )}
+
+            {cameraActive && micActive && (
+              <div className="absolute bottom-16 right-4 z-10 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-full border flex items-center space-x-2 text-xs text-slate-300" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
+                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-mono">Mic Active</span>
               </div>
             )}
 
@@ -395,6 +401,13 @@ export default function EvaluatePage() {
               style={{ background: BRAND.paper, border: `1px solid ${BRAND.border}`, color: BRAND.ink }}
             />
           </div>
+
+          <div className="rounded-xl p-4 flex items-start space-x-3 border bg-amber-50/60" style={{ borderColor: '#FDE68A' }}>
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+            <p className="text-xs leading-relaxed text-amber-900">
+              <strong>Evaluation Tip:</strong> Ensure your answers address specific dates, financial figures, and academic reasons. AI analysis is based directly on your transcribed text.
+            </p>
+          </div>
         </div>
 
         {/* Right Column: Dynamic Question Panel & Feedback */}
@@ -439,6 +452,12 @@ export default function EvaluatePage() {
             </div>
           )}
 
+          {feedbackError && !isSubmitting && (
+            <div className="rounded-2xl p-4 border text-xs leading-relaxed" style={{ background: BRAND.redSoft, borderColor: '#FCA5A5', color: BRAND.red }}>
+              {feedbackError}
+            </div>
+          )}
+
           {feedback && !isSubmitting && (
             <div className="rounded-3xl p-6 border bg-white shadow-md space-y-5" style={{ borderColor: BRAND.border }}>
               <div className="flex items-center space-x-4 border-b pb-4" style={{ borderColor: BRAND.border }}>
@@ -458,6 +477,9 @@ export default function EvaluatePage() {
                 <FeedbackList icon={<ThumbsUp className="w-3.5 h-3.5" />} label="Key Strengths" items={feedback.strengths} color={BRAND.green} bg={BRAND.greenSoft} text="#065F46" />
                 <FeedbackList icon={<TrendingUp className="w-3.5 h-3.5" />} label="Areas for Improvement" items={feedback.weaknesses} color={BRAND.amber} bg={BRAND.amberSoft} text="#92400E" />
                 <FeedbackList icon={<Lightbulb className="w-3.5 h-3.5" />} label="Actionable Advice" items={feedback.tips} color={BRAND.navy} bg={`${BRAND.navy}0D`} text={BRAND.navyDeep} />
+                {feedback.red_flags?.length > 0 && (
+                  <FeedbackList icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Credibility Concerns" items={feedback.red_flags} color={BRAND.red} bg={BRAND.redSoft} text="#991B1B" />
+                )}
               </div>
             </div>
           )}
@@ -527,5 +549,22 @@ function FeedbackList({ icon, label, items, color, bg, text }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+export default function EvaluatePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="flex items-center space-x-3 text-slate-600">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-900" />
+            <span className="text-sm font-semibold">Loading Evaluator Workspace...</span>
+          </div>
+        </div>
+      }
+    >
+      <EvaluateContent />
+    </Suspense>
   );
 }
