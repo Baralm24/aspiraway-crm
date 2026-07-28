@@ -181,3 +181,40 @@ model Document {
 
   uploadedAt DateTime @default(now())
 }
+enum QuestionCategory {
+  MANDATORY_INTRO
+  UK_CHOICE
+  UNIVERSITY_SPECIFIC
+  COURSE_SPECIFIC
+  FINANCE_SPONSORSHIP
+  CAREER_PROGRESSION
+  VISA_COMPLIANCE
+}
+
+model University {
+  id               String     @id @default(cuid())
+  name             String
+  slug             String     @unique
+  city             String
+  londonLivingCost Int        @default(1529)
+  questions        Question[]
+  courses          Course[]
+}
+
+model Course {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  title        String
+  level        String
+  tuitionFee   Int
+}
+
+model Question {
+  id               String           @id @default(cuid())
+  universityId     String?
+  university       University?      @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  category         QuestionCategory
+  timeLimitSec     Int              @default(60)
+  questionTemplate String
+}
