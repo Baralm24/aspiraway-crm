@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation'; // To read query params or local storage
 import {
   Video, VideoOff, Mic, MicOff, Play, Pause, CheckCircle2,
   Clock, AlertCircle, RefreshCw, ChevronRight, Loader2,
-  ThumbsUp, TrendingUp, Lightbulb, ShieldAlert, Sparkles, Activity
+  ThumbsUp, TrendingUp, Lightbulb, ShieldAlert, Sparkles, Activity, Shuffle
 } from 'lucide-react';
 
 // Aspiraway Brand Tokens
@@ -25,14 +26,64 @@ const BRAND = {
   redSoft: '#FEF2F2',
 };
 
-const QUESTIONS = [
-  { id: 1, category: 'Introduction', title: 'Tell us about yourself and your academic background.', seconds: 90 },
-  { id: 2, category: 'Motivation', title: 'Why did you choose this specific program and university?', seconds: 90 },
-  { id: 3, category: 'Financial Genuineness', title: 'Who is funding your studies, and how did they build up these funds?', seconds: 90 },
-  { id: 4, category: 'Career Plans & Ties Home', title: 'What are your short-term and long-term career goals after this course?', seconds: 90 },
+// Master Question Pool (categorized)
+const MASTER_QUESTION_POOL = [
+  { id: 1, category: 'Introduction', title: 'Tell us about yourself and why you chose to study in the UK.', seconds: 90 },
+  { id: 2, category: 'Academic Background', title: 'How does your previous qualification prepare you for {course}?', seconds: 90 },
+  { id: 3, category: 'University Choice', title: 'Why did you choose {university} over other universities offering {course}?', seconds: 90 },
+  { id: 4, category: 'Course Modules', title: 'Which specific modules in {course} are you most interested in and why?', seconds: 90 },
+  { id: 5, category: 'Financial Genuineness', title: 'Who is sponsoring your education, and how was this funding accumulated?', seconds: 90 },
+  { id: 6, category: 'Career Goals', title: 'What specific career role will you pursue after completing {course} at {university}?', seconds: 90 },
+  { id: 7, category: 'Ties to Home Country', title: 'Why do you plan to return home after your studies rather than stay in the UK?', seconds: 90 },
+  { id: 8, category: 'Accommodation & Living', title: 'Where do you plan to live while studying at {university}, and what are the expected costs?', seconds: 90 },
+  { id: 9, category: 'Gap Year Explanation', title: 'Can you explain the gap in your education/employment prior to applying for {course}?', seconds: 90 },
 ];
 
+// Utility to shuffle and pick N random items
+function getRandomQuestions(university, course, count = 5) {
+  const targetUni = university || 'your chosen university';
+  const targetCourse = course || 'your chosen course';
+
+  // Replace placeholders with dynamic context
+  const customizedPool = MASTER_QUESTION_POOL.map(q => ({
+    ...q,
+    title: q.title.replace(/{university}/g, targetUni).replace(/{course}/g, targetCourse)
+  }));
+
+  // Fisher-Yates Shuffle
+  const shuffled = [...customizedPool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled.slice(0, count);
+}
+
 export default function EvaluatePage() {
+  const searchParams = useSearchParams();
+  
+  // Dynamic session context (e.g. passed from /mock config via URL params or localStorage)
+  const universityParam = searchParams.get('university') || '';
+  const courseParam = searchParams.get('course') || '';
+
+  const [questions, setQuestions] = useState([]);
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // Initialize shuffled questions on mount
+  useEffect(() => {
+    // Check localStorage fallback if URL params aren't present
+    const uni = universityParam || localStorage.getItem('target_university') || 'University of Greenwich';
+    const crs = courseParam || localStorage.getItem('target_course') || 'MSc Data Science';
+    
+    const shuffledSubset = getRandomQuestions(uni, crs, 5); // Pick 5 randomized questions
+    setQuestions(shuffledSubset);
+  }, [universityParam, courseParam]);
+
+  // Handle active question state safely
+  const totalSteps = questions.length;
+  const question = questions[currentStep - 1] || { category: 'Loading...', title: 'Loading question...', seconds: 90 };
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -44,11 +95,15 @@ export default function EvaluatePage() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Session State
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = QUESTIONS.length;
-  const question = QUESTIONS[currentStep - 1];
-  const [timeLeft, setTimeLeft] = useState(question.seconds);
+  const [timeLeft, setTimeLeft] = useState(90);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Sync timer when step changes
+  useEffect(() => {
+    if (question?.seconds) {
+      setTimeLeft(question.seconds);
+    }
+  }, [currentStep, questions]);
 
   // Transcript & AI Feedback
   const [transcript, setTranscript] = useState('');
@@ -74,11 +129,7 @@ export default function EvaluatePage() {
       }
       setCameraActive(true);
     } catch (err) {
-      setCameraError(
-        err.name === 'NotAllowedError'
-          ? 'Camera permission denied. Allow camera access in your browser settings.'
-          : 'Unable to access camera or microphone.'
-      );
+      setCameraError('Unable to access camera or microphone.');
       setCameraActive(false);
     } finally {
       setIsInitializing(false);
@@ -106,7 +157,7 @@ export default function EvaluatePage() {
     return () => stopCamera();
   }, []);
 
-  // Speech Recognition Handler
+  // Speech Recognition
   const startRecognition = useCallback(() => {
     const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!SR) return;
@@ -172,7 +223,7 @@ export default function EvaluatePage() {
     stopRecognition();
 
     if (!transcript.trim()) {
-      setFeedbackError("No spoken answer recorded. Verify your microphone or type your response directly below.");
+      setFeedbackError("No spoken answer recorded. Verify your mic or type your response directly below.");
       return;
     }
 
@@ -183,6 +234,8 @@ export default function EvaluatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          university: universityParam || localStorage.getItem('target_university'),
+          course: courseParam || localStorage.getItem('target_course'),
           category: question.category,
           question: question.title,
           transcript: transcript.trim(),
@@ -192,7 +245,7 @@ export default function EvaluatePage() {
       const data = await res.json();
       setFeedback(data);
     } catch (err) {
-      setFeedbackError('Unable to generate AI evaluation at this moment. You can retry or move to the next step.');
+      setFeedbackError('Unable to generate AI evaluation right now.');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,33 +254,34 @@ export default function EvaluatePage() {
   const handleNextQuestion = () => {
     if (currentStep < totalSteps) {
       setCurrentStep((prev) => prev + 1);
-      setTimeLeft(QUESTIONS[currentStep].seconds);
       setTranscript('');
       setFeedback(null);
       setFeedbackError(null);
     } else {
-      alert('Congratulations! Mock interview session completed.');
+      alert('Mock interview session completed!');
     }
   };
 
-  const progressPct = ((question.seconds - timeLeft) / question.seconds) * 100;
+  const progressPct = question.seconds ? ((question.seconds - timeLeft) / question.seconds) * 100 : 0;
 
   return (
-    <div className="min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white" style={{ background: BRAND.paper, color: BRAND.ink }}>
+    <div className="min-h-screen flex flex-col font-sans" style={{ background: BRAND.paper, color: BRAND.ink }}>
 
       {/* Top Header */}
       <header className="px-8 py-3.5 flex items-center justify-between sticky top-0 z-50 border-b bg-white/80 backdrop-blur-xl shadow-xs" style={{ borderColor: BRAND.border }}>
         <div className="flex items-center space-x-3.5">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-lg shadow-md shadow-indigo-900/10 transition-transform hover:scale-105" style={{ background: BRAND.navy, color: BRAND.gold }}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-lg shadow-md shadow-indigo-900/10" style={{ background: BRAND.navy, color: BRAND.gold }}>
             A
           </div>
           <div>
             <div className="text-base font-bold tracking-tight" style={{ color: BRAND.navyDeep }}>Aspiraway AI Evaluator</div>
-            <div className="text-[11px] font-medium" style={{ color: BRAND.inkSoft }}>Pre-CAS Credibility Assessment</div>
+            <div className="text-[11px] font-medium" style={{ color: BRAND.inkSoft }}>
+              {universityParam || localStorage.getItem('target_university') || 'Pre-CAS Practice'}
+            </div>
           </div>
         </div>
 
-        {/* Status Indicators */}
+        {/* Controls / Timer */}
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2 text-xs font-semibold px-3.5 py-1.5 rounded-full border bg-slate-50 shadow-inner" style={{ borderColor: BRAND.border, color: BRAND.inkSoft }}>
             <Clock className="w-3.5 h-3.5" style={{ color: BRAND.navy }} />
@@ -235,7 +289,7 @@ export default function EvaluatePage() {
           </div>
 
           <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full border bg-white shadow-xs" style={{ borderColor: BRAND.border }}>
-            <span className={`h-2.5 w-2.5 rounded-full transition-all ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-300'}`} />
+            <span className={`h-2.5 w-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-300'}`} />
             <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: BRAND.inkSoft }}>
               {isRecording ? 'Live Recording' : 'Standby'}
             </span>
@@ -246,10 +300,9 @@ export default function EvaluatePage() {
       {/* Main Workspace Layout */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 p-8 max-w-[1440px] mx-auto w-full">
 
-        {/* Left Column: Webcam & Live Transcript (7 Cols) */}
+        {/* Left Column: Webcam & Live Transcript */}
         <div className="lg:col-span-7 flex flex-col space-y-5">
           
-          {/* Main Video Screen Container */}
           <div className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl border bg-slate-950 group" style={{ borderColor: BRAND.border }}>
             <video
               ref={videoRef}
@@ -260,7 +313,6 @@ export default function EvaluatePage() {
               style={{ opacity: cameraActive ? 1 : 0 }}
             />
 
-            {/* Initialization Loader */}
             {isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-slate-950/90 backdrop-blur-md">
                 <Loader2 className="w-9 h-9 animate-spin mb-3" style={{ color: BRAND.gold }} />
@@ -268,26 +320,19 @@ export default function EvaluatePage() {
               </div>
             )}
 
-            {/* Error Overlay */}
             {!cameraActive && !isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-20 bg-slate-950/95">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border bg-slate-900" style={{ borderColor: BRAND.gold, color: BRAND.gold }}>
                   <VideoOff className="w-6 h-6" />
                 </div>
-                <h3 className="text-sm font-semibold text-white mb-1">Camera Feed Muted</h3>
-                <p className="text-xs max-w-sm mb-4 leading-relaxed" style={{ color: BRAND.inkSoft }}>{cameraError || 'Webcam feed is currently turned off.'}</p>
-                <button 
-                  onClick={startCamera} 
-                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-transform active:scale-95 shadow-md" 
-                  style={{ background: BRAND.gold, color: BRAND.navyDeep }}
-                >
+                <h3 className="text-sm font-semibold text-white mb-1">Camera Muted</h3>
+                <button onClick={startCamera} className="px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 mt-2" style={{ background: BRAND.gold, color: BRAND.navyDeep }}>
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Re-enable Camera</span>
                 </button>
               </div>
             )}
 
-            {/* Live Camera Badge */}
             {cameraActive && (
               <div className="absolute top-4 left-4 z-10 pointer-events-none">
                 <span className="text-[11px] font-semibold px-3 py-1 rounded-full border backdrop-blur-md flex items-center space-x-2 bg-slate-950/60 text-slate-200" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
@@ -297,28 +342,12 @@ export default function EvaluatePage() {
               </div>
             )}
 
-            {/* Audio Wave Meter Indicator */}
-            {cameraActive && micActive && (
-              <div className="absolute bottom-16 right-4 z-10 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-full border flex items-center space-x-2 text-xs text-slate-300" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
-                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span className="text-[11px] font-mono">Mic Active</span>
-              </div>
-            )}
-
-            {/* Floating Camera Floating Bar Controls */}
+            {/* Camera Overlay Controls */}
             <div className="absolute bottom-4 inset-x-0 mx-auto w-max rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-2xl border bg-slate-950/80 backdrop-blur-xl z-20" style={{ borderColor: 'rgba(255,255,255,0.15)' }}>
-              <button 
-                onClick={cameraActive ? stopCamera : startCamera} 
-                className="p-2.5 rounded-xl transition-colors hover:bg-white/10 text-slate-200" 
-                title="Toggle Camera"
-              >
+              <button onClick={cameraActive ? stopCamera : startCamera} className="p-2.5 rounded-xl hover:bg-white/10 text-slate-200">
                 {cameraActive ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4 text-red-400" />}
               </button>
-              <button 
-                onClick={toggleMic} 
-                className="p-2.5 rounded-xl transition-colors hover:bg-white/10 text-slate-200" 
-                title="Toggle Microphone"
-              >
+              <button onClick={toggleMic} className="p-2.5 rounded-xl hover:bg-white/10 text-slate-200">
                 {micActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4 text-red-400" />}
               </button>
 
@@ -328,7 +357,7 @@ export default function EvaluatePage() {
                 <button 
                   onClick={handleStartRecording} 
                   disabled={!cameraActive || isSubmitting} 
-                  className="px-5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all hover:brightness-105 active:scale-95 disabled:opacity-40 shadow-lg shadow-amber-500/10" 
+                  className="px-5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all disabled:opacity-40" 
                   style={{ background: BRAND.gold, color: BRAND.navyDeep }}
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
@@ -337,7 +366,7 @@ export default function EvaluatePage() {
               ) : (
                 <button 
                   onClick={handleFinishAnswer} 
-                  className="px-5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+                  className="px-5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
                 >
                   <Pause className="w-3.5 h-3.5" />
                   <span>Stop & Submit</span>
@@ -346,15 +375,11 @@ export default function EvaluatePage() {
             </div>
           </div>
 
-          {/* Time Progress Line Bar */}
           <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
-            <div 
-              className="h-full transition-all duration-1000 ease-linear rounded-full" 
-              style={{ width: `${progressPct}%`, background: BRAND.navy }} 
-            />
+            <div className="h-full transition-all duration-1000 ease-linear rounded-full" style={{ width: `${progressPct}%`, background: BRAND.navy }} />
           </div>
 
-          {/* Live Transcript & Fallback Input */}
+          {/* Transcript Box */}
           <div className="rounded-2xl p-5 border bg-white shadow-xs space-y-2.5" style={{ borderColor: BRAND.border }}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Speech Transcript</span>
@@ -365,25 +390,16 @@ export default function EvaluatePage() {
             <textarea
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Your spoken response will transcribe live here... (You can also type directly)"
-              className="w-full min-h-[110px] rounded-xl p-3.5 text-sm outline-none resize-y transition-border focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="Your spoken response will transcribe live here..."
+              className="w-full min-h-[110px] rounded-xl p-3.5 text-sm outline-none resize-y"
               style={{ background: BRAND.paper, border: `1px solid ${BRAND.border}`, color: BRAND.ink }}
             />
           </div>
-
-          {/* Guidelines Notice */}
-          <div className="rounded-xl p-4 flex items-start space-x-3 border bg-amber-50/60" style={{ borderColor: '#FDE68A' }}>
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-            <p className="text-xs leading-relaxed text-amber-900">
-              <strong>Evaluation Tip:</strong> Ensure your answers address specific dates, financial figures, and academic reasons. AI analysis is based directly on your transcribed text.
-            </p>
-          </div>
         </div>
 
-        {/* Right Column: Question Panel & AI Evaluation Output (5 Cols) */}
+        {/* Right Column: Dynamic Question Panel & Feedback */}
         <div className="lg:col-span-5 flex flex-col space-y-5">
           
-          {/* Question Prompt Card */}
           <div className="rounded-3xl p-6 border bg-white shadow-sm flex flex-col justify-between" style={{ borderColor: BRAND.border }}>
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -399,7 +415,7 @@ export default function EvaluatePage() {
                 {question.title}
               </h2>
               <p className="text-xs leading-relaxed text-slate-500 mb-6">
-                Limit your response to 90 seconds. Speak naturally and clearly.
+                Tailored question based on your target course and university configuration.
               </p>
             </div>
 
@@ -409,23 +425,17 @@ export default function EvaluatePage() {
                 className="w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-transform active:scale-98 shadow-md"
                 style={{ background: BRAND.navy, color: '#FFFFFF' }}
               >
-                <span>{currentStep === totalSteps ? 'Finish Session' : 'Continue to Next Prompt'}</span>
+                <span>{currentStep === totalSteps ? 'Finish Session' : 'Continue to Next Question'}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* AI Assessment Feedback State */}
+          {/* AI Feedback Display */}
           {isSubmitting && (
             <div className="rounded-3xl p-6 border bg-white shadow-sm flex items-center space-x-3.5" style={{ borderColor: BRAND.border }}>
               <Loader2 className="w-5 h-5 animate-spin" style={{ color: BRAND.navy }} />
-              <span className="text-xs font-semibold text-slate-600">Analyzing credibility and structure...</span>
-            </div>
-          )}
-
-          {feedbackError && !isSubmitting && (
-            <div className="rounded-2xl p-4 border text-xs leading-relaxed" style={{ background: BRAND.redSoft, borderColor: '#FCA5A5', color: BRAND.red }}>
-              {feedbackError}
+              <span className="text-xs font-semibold text-slate-600">Evaluating response for credibility...</span>
             </div>
           )}
 
@@ -438,38 +448,38 @@ export default function EvaluatePage() {
                 <div>
                   <div className="flex items-center space-x-1 text-xs font-bold uppercase tracking-wider text-amber-600 mb-0.5">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>AI Analysis Score</span>
+                    <span>AI Analysis</span>
                   </div>
                   <p className="text-xs text-slate-600 leading-normal">{feedback.summary}</p>
                 </div>
               </div>
 
-              {/* Feedback Metrics */}
               <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
                 <FeedbackList icon={<ThumbsUp className="w-3.5 h-3.5" />} label="Key Strengths" items={feedback.strengths} color={BRAND.green} bg={BRAND.greenSoft} text="#065F46" />
-                <FeedbackList icon={<TrendingUp className="w-3.5 h-3.5" />} label="Areas for Growth" items={feedback.weaknesses} color={BRAND.amber} bg={BRAND.amberSoft} text="#92400E" />
-                <FeedbackList icon={<Lightbulb className="w-3.5 h-3.5" />} label="Actionable Tips" items={feedback.tips} color={BRAND.navy} bg={`${BRAND.navy}0D`} text={BRAND.navyDeep} />
-                {feedback.red_flags?.length > 0 && (
-                  <FeedbackList icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Credibility Concerns" items={feedback.red_flags} color={BRAND.red} bg={BRAND.redSoft} text="#991B1B" />
-                )}
+                <FeedbackList icon={<TrendingUp className="w-3.5 h-3.5" />} label="Areas for Improvement" items={feedback.weaknesses} color={BRAND.amber} bg={BRAND.amberSoft} text="#92400E" />
+                <FeedbackList icon={<Lightbulb className="w-3.5 h-3.5" />} label="Actionable Advice" items={feedback.tips} color={BRAND.navy} bg={`${BRAND.navy}0D`} text={BRAND.navyDeep} />
               </div>
             </div>
           )}
 
-          {/* Session Stepper Navigation Bar */}
+          {/* Shuffled Roadmap Stepper */}
           <div className="rounded-3xl p-6 border bg-white shadow-sm flex-1" style={{ borderColor: BRAND.border }}>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-4">
-              Interview Roadmap
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                Shuffled Question Sequence
+              </h3>
+              <Shuffle className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+
             <div className="space-y-2.5">
-              {QUESTIONS.map((q, idx) => {
+              {questions.map((q, idx) => {
                 const stepNum = idx + 1;
                 const isCompleted = stepNum < currentStep;
                 const isCurrent = stepNum === currentStep;
 
                 return (
                   <div 
-                    key={q.id} 
+                    key={idx} 
                     className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
                       isCurrent 
                         ? 'bg-indigo-50/50 border-indigo-200' 
@@ -479,15 +489,9 @@ export default function EvaluatePage() {
                     }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <div 
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                          isCompleted 
-                            ? 'bg-emerald-500 text-white' 
-                            : isCurrent 
-                            ? 'bg-indigo-900 text-white' 
-                            : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        isCompleted ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-indigo-900 text-white' : 'bg-slate-100 text-slate-400'
+                      }`}>
                         {isCompleted ? <CheckCircle2 className="w-3.5 h-3.5" /> : stepNum}
                       </div>
                       <span className={`text-xs font-medium line-clamp-1 ${isCurrent ? 'text-indigo-950 font-bold' : 'text-slate-500'}`}>
@@ -507,7 +511,6 @@ export default function EvaluatePage() {
   );
 }
 
-// Sub-component for rendering feedback item arrays cleanly
 function FeedbackList({ icon, label, items, color, bg, text }) {
   if (!items || items.length === 0) return null;
   return (
