@@ -26,61 +26,71 @@ const BRAND = {
   redSoft: '#FEF2F2',
 };
 
-// Master Question Pool (categorized with dynamic tags)
-const MASTER_QUESTION_POOL = [
-  { id: 1, category: 'Introduction', title: 'Tell us about yourself and why you chose to study in the UK.', seconds: 90 },
-  { id: 2, category: 'Academic Background', title: 'How does your previous qualification prepare you for {course}?', seconds: 90 },
-  { id: 3, category: 'University Choice', title: 'Why did you choose {university} over other universities offering {course}?', seconds: 90 },
-  { id: 4, category: 'Course Modules', title: 'Which specific modules in {course} are you most interested in and why?', seconds: 90 },
-  { id: 5, category: 'Financial Genuineness', title: 'Who is sponsoring your education, and how was this funding accumulated?', seconds: 90 },
-  { id: 6, category: 'Career Goals', title: 'What specific career role will you pursue after completing {course} at {university}?', seconds: 90 },
-  { id: 7, category: 'Ties to Home Country', title: 'Why do you plan to return home after your studies rather than stay in the UK?', seconds: 90 },
-  { id: 8, category: 'Accommodation & Living', title: 'Where do you plan to live while studying at {university}, and what are the expected costs?', seconds: 90 },
-  { id: 9, category: 'Gap Year Explanation', title: 'Can you explain any gaps in your education or work history prior to applying for {course}?', seconds: 90 },
-];
-
-// Utility to shuffle and pick N random items
-function getRandomQuestions(university, course, count = 5) {
-  const targetUni = university || 'your chosen university';
-  const targetCourse = course || 'your chosen course';
-
-  // Replace placeholders with dynamic context
-  const customizedPool = MASTER_QUESTION_POOL.map((q) => ({
-    ...q,
-    title: q.title.replace(/{university}/g, targetUni).replace(/{course}/g, targetCourse),
-  }));
-
-  // Fisher-Yates Shuffle
-  const shuffled = [...customizedPool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-
-  return shuffled.slice(0, count);
-}
-
 function EvaluateContent() {
   const searchParams = useSearchParams();
 
-  // Dynamic session context
-  const universityParam = searchParams.get('university') || '';
-  const courseParam = searchParams.get('course') || '';
+  // 1. Extract context directly from URL parameters or storage dynamically
+  const universityParam = searchParams.get('university') || searchParams.get('uni') || '';
+  const courseParam = searchParams.get('course') || searchParams.get('program') || '';
+  const studentIdParam = searchParams.get('studentId') || searchParams.get('id') || '';
+
+  const [targetUni, setTargetUni] = useState('');
+  const [targetCourse, setTargetCourse] = useState('');
 
   const [questions, setQuestions] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
 
-  // Initialize shuffled questions on mount
+  // 2. Load Dynamic Questions from API or Context
   useEffect(() => {
-    const uni = universityParam || localStorage.getItem('target_university') || 'University of Greenwich';
-    const crs = courseParam || localStorage.getItem('target_course') || 'MSc Data Science';
+    async function loadSessionQuestions() {
+      setIsLoadingQuestions(true);
 
-    const shuffledSubset = getRandomQuestions(uni, crs, 5);
-    setQuestions(shuffledSubset);
-  }, [universityParam, courseParam]);
+      // Check URL params first, then local storage
+      const uni = universityParam || localStorage.getItem('target_university') || localStorage.getItem('selected_university') || 'Your Selected University';
+      const course = courseParam || localStorage.getItem('target_course') || localStorage.getItem('selected_course') || 'Your Selected Course';
+
+      setTargetUni(uni);
+      setTargetCourse(course);
+
+      try {
+        // Fetch custom dynamic question set from your API route
+        const res = await fetch(`/api/questions?university=${encodeURIComponent(uni)}&course=${encodeURIComponent(course)}&studentId=${encodeURIComponent(studentIdParam)}`);
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.questions && data.questions.length > 0) {
+            setQuestions(data.questions);
+            setIsLoadingQuestions(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch custom API questions, generating dynamic contextual pool.');
+      }
+
+      // Fallback: Contextual dynamic generator based on actual inputs (No hardcoded data science)
+      const dynamicPool = [
+        { id: 1, category: 'Introduction', title: `Tell us about yourself and why you want to study at ${uni}.`, seconds: 90 },
+        { id: 2, category: 'Academic Background', title: `How does your academic background prepare you for ${course}?`, seconds: 90 },
+        { id: 3, category: 'University Choice', title: `Why did you choose ${uni} over other universities offering ${course}?`, seconds: 90 },
+        { id: 4, category: 'Course Modules', title: `Which modules or subjects in ${course} are you most excited to study?`, seconds: 90 },
+        { id: 5, category: 'Financial Genuineness', title: `Who is funding your studies for ${course}, and how are these funds arranged?`, seconds: 90 },
+        { id: 6, category: 'Career Goals', title: `What are your career plans after completing ${course} at ${uni}?`, seconds: 90 },
+        { id: 7, category: 'Ties Home', title: `Why do you intend to return to your home country after graduating from ${uni}?`, seconds: 90 },
+      ];
+
+      // Shuffle dynamic set
+      const shuffled = [...dynamicPool].sort(() => 0.5 - Math.random());
+      setQuestions(shuffled);
+      setIsLoadingQuestions(false);
+    }
+
+    loadSessionQuestions();
+  }, [universityParam, courseParam, studentIdParam]);
 
   const totalSteps = questions.length;
-  const question = questions[currentStep - 1] || { category: 'Loading...', title: 'Loading question...', seconds: 90 };
+  const question = questions[currentStep - 1] || { category: 'Assessment', title: 'Preparing questions...', seconds: 90 };
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -96,7 +106,7 @@ function EvaluateContent() {
   const [timeLeft, setTimeLeft] = useState(90);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Sync timer when step changes
+  // Sync timer on question change
   useEffect(() => {
     if (question?.seconds) {
       setTimeLeft(question.seconds);
@@ -155,7 +165,7 @@ function EvaluateContent() {
     return () => stopCamera();
   }, []);
 
-  // Speech Recognition
+  // Speech Recognition Handler
   const startRecognition = useCallback(() => {
     const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!SR) return;
@@ -232,8 +242,8 @@ function EvaluateContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          university: universityParam || localStorage.getItem('target_university'),
-          course: courseParam || localStorage.getItem('target_course'),
+          university: targetUni,
+          course: targetCourse,
           category: question.category,
           question: question.title,
           transcript: transcript.trim(),
@@ -262,6 +272,15 @@ function EvaluateContent() {
 
   const progressPct = question.seconds ? ((question.seconds - timeLeft) / question.seconds) * 100 : 0;
 
+  if (isLoadingQuestions) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: BRAND.navy }} />
+        <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Loading Target Program Questions...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col font-sans" style={{ background: BRAND.paper, color: BRAND.ink }}>
 
@@ -274,7 +293,7 @@ function EvaluateContent() {
           <div>
             <div className="text-base font-bold tracking-tight" style={{ color: BRAND.navyDeep }}>Aspiraway AI Evaluator</div>
             <div className="text-[11px] font-medium" style={{ color: BRAND.inkSoft }}>
-              {universityParam || localStorage.getItem('target_university') || 'Pre-CAS Practice'}
+              {targetUni} {targetCourse ? `• ${targetCourse}` : ''}
             </div>
           </div>
         </div>
@@ -428,7 +447,7 @@ function EvaluateContent() {
                 {question.title}
               </h2>
               <p className="text-xs leading-relaxed text-slate-500 mb-6">
-                Tailored question based on your target course and university configuration.
+                Tailored dynamically for {targetCourse || 'your program'} at {targetUni || 'your university'}.
               </p>
             </div>
 
@@ -484,11 +503,11 @@ function EvaluateContent() {
             </div>
           )}
 
-          {/* Shuffled Roadmap Stepper */}
+          {/* Dynamic Questions Stepper */}
           <div className="rounded-3xl p-6 border bg-white shadow-sm flex-1" style={{ borderColor: BRAND.border }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                Shuffled Question Sequence
+                Session Question Sequence
               </h3>
               <Shuffle className="w-3.5 h-3.5 text-slate-400" />
             </div>
