@@ -79,22 +79,18 @@ const generateDynamicQuestions = (studentName, university, course, destination) 
     { id: 2, title: getRandom(pools.courseRationale), category: "Course Choice" },
     { id: 3, title: `What alternative programs did you consider before deciding on ${courseStr}?`, category: "Academic Intent" },
     { id: 4, title: "If you have any gaps in your education or employment, please account for them clearly.", category: "Background Check" },
-
     { id: 5, title: getRandom(pools.universitySelection), category: "University Selection" },
     { id: 6, title: `How far is your planned accommodation from the main campus of ${uniStr}?`, category: "Logistics & Planning" },
     { id: 7, title: getRandom(pools.destinationRationale), category: "Country Selection" },
     { id: 8, title: `How did you first discover ${uniStr} and its academic offerings?`, category: "Research Credibility" },
-
     { id: 9, title: getRandom(pools.financialPlan), category: "Financial Verification" },
     { id: 10, title: `What proof of funds have you prepared to cover tuition and living costs at ${uniStr}?`, category: "Sponsorship Details" },
     { id: 11, title: getRandom(pools.financialPlan), category: "Living Expenses" },
     { id: 12, title: "Are you planning to rely on part-time employment to fund your tuition or essential living costs?", category: "Financial Rules" },
-
     { id: 13, title: getRandom(pools.careerGoals), category: "Post-Graduation Plans" },
     { id: 14, title: getRandom(pools.careerGoals), category: "Market Value & ROI" },
     { id: 15, title: `How does the investment in ${courseStr} compare to your projected future earnings?`, category: "Career Justification" },
     { id: 16, title: "Why do you not plan to seek permanent residency in your host destination after studies?", category: "Return Intent" },
-
     { id: 17, title: getRandom(pools.immigrationCompliance), category: "Visa Regulations" },
     { id: 18, title: getRandom(pools.immigrationCompliance), category: "Credibility Check" },
     { id: 19, title: `What will you do if your initial post-graduation job search takes longer than expected?`, category: "Contingency Plan" },
@@ -114,7 +110,7 @@ function EvaluateContent() {
     course: '',
     destination: 'United Kingdom'
   });
-  
+
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
@@ -125,7 +121,7 @@ function EvaluateContent() {
   // Camera & Audio State
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  
+
   const [cameraActive, setCameraActive] = useState(false);
   const [micActive, setMicActive] = useState(true);
   const [cameraError, setCameraError] = useState(null);
@@ -198,6 +194,7 @@ function EvaluateContent() {
       studentDetails.course, 
       studentDetails.destination
     ));
+
     setIsFormSubmitted(true);
     startCamera();
   };
@@ -209,7 +206,6 @@ function EvaluateContent() {
   const startCamera = async () => {
     setIsInitializing(true);
     setCameraError(null);
-
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -286,6 +282,7 @@ function EvaluateContent() {
         setPhase('review');
       }
     }
+
     return () => clearInterval(timer);
   }, [timeLeft, phase, responseLimit, isFormSubmitted, showCompletionModal]);
 
@@ -357,7 +354,6 @@ function EvaluateContent() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
-
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1.5">
                   WhatsApp Number *
@@ -551,13 +547,10 @@ function EvaluateContent() {
               >
                 {cameraActive ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
               </button>
-
               <button onClick={toggleMic} className="p-2 rounded-xl bg-slate-800 text-slate-200">
                 {micActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </button>
-
               <div className="h-4 w-px bg-slate-800" />
-
               {phase === 'prep' && (
                 <button
                   onClick={handleStartRecordingEarly}
@@ -567,7 +560,6 @@ function EvaluateContent() {
                   <span>Record Now</span>
                 </button>
               )}
-
               {phase === 'recording' && (
                 <button
                   onClick={handleStopRecording}
@@ -616,12 +608,10 @@ function EvaluateContent() {
                   {currentStep} / {totalSteps}
                 </span>
               </div>
-
               <h2 className="text-base font-semibold text-white mb-4 leading-snug">
                 {currentQuestion.title}
               </h2>
             </div>
-
             <button
               onClick={handleNextQuestion}
               disabled={phase === 'recording'}
@@ -641,13 +631,11 @@ function EvaluateContent() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 shrink-0">
               Questions Remaining
             </h3>
-
             <div className="space-y-2 overflow-y-auto pr-1 flex-1 custom-scrollbar">
               {questions.map((q, idx) => {
                 const stepNum = idx + 1;
                 const isCompleted = stepNum < currentStep;
                 const isCurrent = stepNum === currentStep;
-
                 return (
                   <div
                     key={q.id}
@@ -665,9 +653,7 @@ function EvaluateContent() {
               })}
             </div>
           </div>
-
         </div>
-
       </main>
 
       {/* Completion Modal */}
@@ -677,14 +663,12 @@ function EvaluateContent() {
             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/20">
               <CheckCircle className="w-8 h-8" />
             </div>
-
             <div>
               <h2 className="text-xl font-bold text-white mb-1">Pre-CAS Practice Completed!</h2>
               <p className="text-xs text-slate-400">
                 Great job completing your 20-question practice run for <strong className="text-slate-200">{studentDetails.university}</strong>.
               </p>
             </div>
-
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended Next Steps:</h4>
               
