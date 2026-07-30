@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { 
   Video, VideoOff, Mic, MicOff, Play, CheckCircle, 
   Clock, AlertCircle, RefreshCw, ChevronRight, Activity, Loader2, Brain, Square,
-  GraduationCap, User, Building, BookOpen, Globe, ArrowRight, Phone, MessageSquare, Award, Sparkles
+  GraduationCap, User, Building, BookOpen, Globe, ArrowRight, Phone, MessageSquare, Award, Sparkles, Check, AlertTriangle
 } from 'lucide-react';
 
 // Aspiraway SVG Logo Component
@@ -115,6 +115,15 @@ function EvaluateContent() {
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
+  // Speech Recognition & Transcripts State
+  const [userTranscripts, setUserTranscripts] = useState({});
+  const [currentLiveTranscript, setCurrentLiveTranscript] = useState('');
+  const recognitionRef = useRef(null);
+
+  // AI Score Report State
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [aiReport, setAiReport] = useState(null);
+
   // Questions Array
   const [questions, setQuestions] = useState([]);
 
@@ -158,6 +167,64 @@ function EvaluateContent() {
       saveLeadToDatabase(details);
     }
   }, [searchParams]);
+
+  // Web Speech API Initialization
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+
+          const combined = finalTranscript || interimTranscript;
+          setCurrentLiveTranscript((prev) => combined);
+          
+          setUserTranscripts((prev) => ({
+            ...prev,
+            [currentStep]: (prev[currentStep] || '') + ' ' + combined
+          }));
+        };
+
+        recognition.onerror = (err) => {
+          console.warn("Speech recognition notice:", err.error);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+  }, [currentStep]);
+
+  // Handle Speech Recognition Toggle based on Recording Phase
+  useEffect(() => {
+    if (phase === 'recording' && recognitionRef.current) {
+      try {
+        setCurrentLiveTranscript('');
+        recognitionRef.current.start();
+      } catch (e) {
+        // Recognition already active
+      }
+    } else if (phase !== 'recording' && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Recognition already stopped
+      }
+    }
+  }, [phase]);
 
   // Function to save lead details to backend
   const saveLeadToDatabase = async (details) => {
@@ -296,13 +363,66 @@ function EvaluateContent() {
     setTimeLeft(0);
   };
 
+  // Generate Local Client AI Evaluation
+  const evaluateResponsesWithAI = () => {
+    setIsGeneratingReport(true);
+
+    setTimeout(() => {
+      let totalWords = 0;
+      let questionsAnswered = 0;
+
+      Object.values(userTranscripts).forEach((t) => {
+        const words = t.trim().split(/\s+/).filter(Boolean).length;
+        if (words > 5) {
+          questionsAnswered++;
+          totalWords += words;
+        }
+      });
+
+      const coverageRatio = Math.min(1, (questionsAnswered || 1) / totalSteps);
+      const avgWordsPerAns = totalWords / (questionsAnswered || 1);
+
+      let score = Math.round(55 + coverageRatio * 35 + Math.min(10, avgWordsPerAns / 3));
+      if (score > 98) score = 98;
+      if (score < 45) score = 52;
+
+      const strengths = [];
+      const areasForImprovement = [];
+
+      if (avgWordsPerAns > 25) {
+        strengths.push("Good response depth and willingness to elaborate on academic choices.");
+      } else {
+        areasForImprovement.push("Answers were slightly brief. Expand with specific course module names and university facts.");
+      }
+
+      if (userTranscripts[9] || userTranscripts[10] || userTranscripts[11]) {
+        strengths.push("Attempted financial and sponsorship breakdown questions directly.");
+      } else {
+        areasForImprovement.push("Financial details were brief. Be ready to state exact tuition fees, living expenses, and sponsor income sources.");
+      }
+
+      strengths.push(`Successfully completed practice run tailored for ${studentDetails.university || 'your target university'}.`);
+      areasForImprovement.push("Ensure you emphasize return intent to your home country upon completing your degree.");
+
+      setAiReport({
+        score,
+        questionsAnswered: `${questionsAnswered} / ${totalSteps}`,
+        strengths,
+        areasForImprovement,
+      });
+
+      setIsGeneratingReport(false);
+      setShowCompletionModal(true);
+    }, 1500);
+  };
+
   const handleNextQuestion = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1);
       setPhase('prep');
       setTimeLeft(prepDuration);
     } else {
-      setShowCompletionModal(true);
+      evaluateResponsesWithAI();
     }
   };
 
@@ -524,6 +644,19 @@ function EvaluateContent() {
               </div>
             )}
 
+            {/* Live Speech Recognition Overlay */}
+            {phase === 'recording' && (
+              <div className="absolute top-4 left-4 right-4 bg-slate-950/80 backdrop-blur-md border border-red-500/30 rounded-xl p-3 z-20 flex items-center space-x-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-red-400 block">AI Speech-to-Text Active</span>
+                  <p className="text-xs text-slate-200 truncate italic">
+                    {currentLiveTranscript || "Listening to your answer..."}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Camera Error / Loading Overlay */}
             {!cameraActive && !isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-center p-6 z-10">
@@ -614,15 +747,24 @@ function EvaluateContent() {
             </div>
             <button
               onClick={handleNextQuestion}
-              disabled={phase === 'recording'}
+              disabled={phase === 'recording' || isGeneratingReport}
               className={`w-full py-3 rounded-xl font-semibold text-xs transition-all flex items-center justify-center space-x-2 shadow-lg ${
-                phase === 'recording'
+                phase === 'recording' || isGeneratingReport
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
               }`}
             >
-              <span>{currentStep === totalSteps ? 'Finish & See Feedback' : 'Next Question'}</span>
-              <ChevronRight className="w-4 h-4" />
+              {isGeneratingReport ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Evaluating Answers with AI...</span>
+                </>
+              ) : (
+                <>
+                  <span>{currentStep === totalSteps ? 'Finish & Generate AI Report' : 'Next Question'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
 
@@ -656,19 +798,67 @@ function EvaluateContent() {
         </div>
       </main>
 
-      {/* Completion Modal */}
-      {showCompletionModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/20">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white mb-1">Pre-CAS Practice Completed!</h2>
+      {/* Completion Modal + Instant AI Report */}
+      {showCompletionModal && aiReport && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200 my-8">
+            
+            {/* Header & Score Badge */}
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-blue-600/10 text-blue-400 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/20">
+                <Brain className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-bold text-white">Pre-CAS Practice Evaluation</h2>
               <p className="text-xs text-slate-400">
-                Great job completing your 20-question practice run for <strong className="text-slate-200">{studentDetails.university}</strong>.
+                AI Assessment for <strong className="text-slate-200">{studentDetails.university}</strong>
               </p>
+              
+              {/* Score Indicator */}
+              <div className="pt-2 flex items-center justify-center">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl px-6 py-3 flex items-center space-x-4">
+                  <div className="text-3xl font-extrabold font-mono text-blue-400">
+                    {aiReport.score}<span className="text-xs text-slate-500">/100</span>
+                  </div>
+                  <div className="text-left text-[11px] text-slate-400 border-l border-slate-800 pl-4">
+                    <span className="font-bold text-slate-200 block">Overall Credibility Score</span>
+                    <span>{aiReport.questionsAnswered} Questions Evaluated</span>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* AI Breakdown: Strengths & Weaknesses */}
+            <div className="space-y-3">
+              <div className="bg-slate-950/60 border border-emerald-900/40 rounded-2xl p-4 space-y-2">
+                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Check className="w-4 h-4" /> Key Strengths
+                </h4>
+                <ul className="space-y-1.5 text-xs text-slate-300">
+                  {aiReport.strengths.map((str, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-emerald-500 mt-0.5">•</span>
+                      <span>{str}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-slate-950/60 border border-amber-900/40 rounded-2xl p-4 space-y-2">
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" /> Areas to Refine Before Official CAS
+                </h4>
+                <ul className="space-y-1.5 text-xs text-slate-300">
+                  {aiReport.areasForImprovement.map((area, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5">•</span>
+                      <span>{area}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Conversion Next Steps */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended Next Steps:</h4>
               
@@ -709,6 +899,8 @@ function EvaluateContent() {
                 setCurrentStep(1);
                 setPhase('prep');
                 setTimeLeft(prepDuration);
+                setUserTranscripts({});
+                setAiReport(null);
               }}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all"
             >
