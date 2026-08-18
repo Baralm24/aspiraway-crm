@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../lib/api';
 
-
 export default function StudentDashboard() {
   const [data, setData] = useState(null);
 
@@ -21,4 +20,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-
