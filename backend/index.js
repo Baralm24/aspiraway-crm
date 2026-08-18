@@ -5,7 +5,33 @@ import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 
 const app = express();
-app.use(cors());
+
+/* =========================
+   CORS CONFIGURATION
+========================= */
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://crm.aspiraway.com",
+  "https://mock.aspiraway.com",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server proxy calls)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked request from origin: ${origin}`));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
@@ -14,17 +40,15 @@ const JWT_SECRET = process.env.JWT_SECRET || "SUPER_SECRET_KEY";
 /* =========================
    IN-MEMORY DATABASE
 ========================= */
-
 const users = [];
 const students = [];
 const mentors = [];
 
 /* =========================
-   SEED ADMIN
+   SEED ADMIN & START SERVER
 ========================= */
-
-async function seedAdmin() {
-  const exists = users.find(u => u.email === "admin@aspiraway.com");
+async function startServer() {
+  const exists = users.find((u) => u.email === "admin@aspiraway.com");
   if (!exists) {
     const hash = await bcrypt.hash("admin123", 10);
     users.push({
@@ -36,14 +60,20 @@ async function seedAdmin() {
     });
     console.log("✅ Admin seeded: admin@aspiraway.com / admin123");
   }
+
+  // Binding to '0.0.0.0' guarantees IPv4 & IPv6 localhost/container access
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Backend running on port ${PORT}`);
+  });
 }
 
-await seedAdmin();
+startServer().catch((err) => {
+  console.error("Failed to start backend server:", err);
+});
 
 /* =========================
    AUTH MIDDLEWARE
 ========================= */
-
 function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header) return res.status(401).json({ error: "No token" });
@@ -58,13 +88,12 @@ function auth(req, res, next) {
 }
 
 /* =========================
-   AUTH
+   AUTH ROUTES
 ========================= */
-
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
-  const user = users.find(u => u.email === email);
+  const user = users.find((u) => u.email === email);
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
   const ok = await bcrypt.compare(password, user.password);
@@ -88,13 +117,27 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 /* =========================
-   STUDENTS
+   STUDENT ROUTES
 ========================= */
 
+// Get all students
 app.get("/api/students", auth, (req, res) => {
   res.json(students);
 });
 
+// Get single student by ID
+app.get("/api/students/:id", auth, (req, res) => {
+  const { id } = req.params;
+  const student = students.find((s) => s.id === id);
+
+  if (!student) {
+    return res.status(404).json({ error: "Student not found" });
+  }
+
+  res.json(student);
+});
+
+// Create new student
 app.post("/api/students/new", auth, (req, res) => {
   const { name, email } = req.body;
 
@@ -102,6 +145,7 @@ app.post("/api/students/new", auth, (req, res) => {
     id: uuid(),
     user: { name, email },
     status: "LEAD",
+    mentorId: null,
     applications: [],
     followUps: [],
     createdAt: new Date(),
@@ -111,10 +155,26 @@ app.post("/api/students/new", auth, (req, res) => {
   res.json(student);
 });
 
-/* =========================
-   SERVER
-========================= */
+// Update student profile/status/mentor
+app.put("/api/students/:id", auth, (req, res) => {
+  const { id } = req.params;
+  const index = students.findIndex((s) => s.id === id);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+  if (index === -1) {
+    return res.status(404).json({ error: "Student not found" });
+  }
+
+  students[index] = {
+    ...students[index],
+    ...req.body,
+  };
+
+  res.json(students[index]);
+});
+
+/* =========================
+   MENTOR ROUTES
+========================= */
+app.get("/api/mentors", auth, (req, res) => {
+  res.json(mentors);
 });
