@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-node_modules
-.env
-.env.local
-.next
-dist
-uploads
-=======
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -47,4 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
->>>>>>> e3235b7 (feat: frontend UI setup)
