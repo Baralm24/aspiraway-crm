@@ -31,6 +31,11 @@ export default function AdminDashboard() {
     "DEPARTED",
   ];
 
+  // Dynamic API URL resolution
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://aspiraway-crm-production.up.railway.app";
+
   useEffect(() => {
     async function fetchStudents() {
       const token =
@@ -41,11 +46,10 @@ export default function AdminDashboard() {
       }
 
       try {
-        // Direct call to Render Express API
-        const res = await axios.get("https://aspiraway-crm.onrender.com/api/students", {
+        const res = await axios.get(`${API_BASE}/api/students`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setStudents(res.data);
+        setStudents(res.data || []);
       } catch (err) {
         console.error("FETCH ERROR:", err.response?.data || err.message);
         if (err.response?.status === 401) {
@@ -57,7 +61,7 @@ export default function AdminDashboard() {
       }
     }
     fetchStudents();
-  }, [router]);
+  }, [router, API_BASE]);
 
   const statusCounts = STATUSES.reduce((acc, s) => {
     acc[s] = students.filter((st) => st.status === s).length;
@@ -144,7 +148,9 @@ export default function AdminDashboard() {
       {/* Students Directory Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <h2 className="text-base font-bold text-slate-800">Students Directory</h2>
+          <h2 className="text-base font-bold text-slate-800">
+            Students Directory
+          </h2>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="relative w-full sm:w-64">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -193,19 +199,21 @@ export default function AdminDashboard() {
                     className="hover:bg-slate-50/80 transition-colors"
                   >
                     <td className="py-3.5 px-5 font-semibold text-slate-900">
-                      {s.user?.name}
+                      {s.user?.name || s.name || "Unnamed"}
                     </td>
                     <td className="py-3.5 px-5 text-slate-600">
-                      {s.user?.email}
+                      {s.user?.email || "N/A"}
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                        {s.status}
+                        {s.status || "LEAD"}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <button
-                        onClick={() => router.push(`/dashboard/admin/students/${s.id}`)}
+                        onClick={() =>
+                          router.push(`/dashboard/admin/students/${s.id}`)
+                        }
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium hover:underline text-xs"
                       >
                         View Profile <ExternalLink className="w-3 h-3" />
