@@ -1,13 +1,21 @@
-import axios from 'axios';
+import axios from "axios";
+
+// Automatically fall back to Render if ENV is missing
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://aspiraway-crm.onrender.com";
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001', // your backend
+  baseURL: BASE_URL,
 });
 
-// Add token to every request
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+// Auto-attach JWT Token to every request
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
   return config;
 });
 
