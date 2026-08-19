@@ -18,6 +18,7 @@ export default function EvaluatePage() {
 
   // Media & Transcript States
   const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef(null);
@@ -51,13 +52,13 @@ export default function EvaluatePage() {
       setupWebcam();
     } catch (err) {
       console.error('Error starting session:', err);
-      // Fallback fallback questions if backend call encounters network issues
+      // Fallback questions if backend call encounters network issues
       setQuestions([
         { category: "STUDY PLAN", text: "Why did you choose this specific course and university in the UK?" }
       ]);
       setStage('INTERVIEW');
       setupWebcam();
-    } font-sans finally {
+    } finally {
       setIsLoading(false);
     }
   };
@@ -65,7 +66,9 @@ export default function EvaluatePage() {
   // 2. Initialize Webcam Feed
   const setupWebcam = async () => {
     try {
+      if (typeof window === 'undefined' || !navigator?.mediaDevices) return;
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = mediaStream;
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -78,14 +81,16 @@ export default function EvaluatePage() {
   // Clean up media stream and speech recognition on unmount
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
       }
     };
-  }, [stream]);
+  }, []);
 
   // 3. Speech Recognition Engine
   useEffect(() => {
@@ -176,7 +181,9 @@ export default function EvaluatePage() {
       setTranscript('');
     } else {
       setStage('COMPLETED');
-      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
     }
   };
 
