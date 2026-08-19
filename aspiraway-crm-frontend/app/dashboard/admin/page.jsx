@@ -33,19 +33,25 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchStudents() {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : "";
       if (!token) {
         router.push("/login");
         return;
       }
 
       try {
-        const res = await axios.get("/api/students", {
+        // Direct call to Render Express API
+        const res = await axios.get("https://aspiraway-crm.onrender.com/api/students", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setStudents(res.data);
       } catch (err) {
         console.error("FETCH ERROR:", err.response?.data || err.message);
+        if (err.response?.status === 401) {
+          localStorage.removeItem("token");
+          router.push("/login");
+        }
       } finally {
         setLoading(false);
       }
