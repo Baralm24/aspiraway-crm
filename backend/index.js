@@ -39,11 +39,48 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "SUPER_SECRET_KEY";
 
 /* =========================
-   IN-MEMORY DATABASE
+   IN-MEMORY DATABASE (With Seed Data)
 ========================= */
 const users = [];
 const students = [];
-const mentors = [];
+
+const mentors = [
+  {
+    id: "m-1",
+    name: "Dr. Anish Sharma",
+    email: "anish@aspiraway.com",
+    expertise: "US & UK University Applications",
+    status: "ACTIVE",
+  },
+  {
+    id: "m-2",
+    name: "Suman Adhikari",
+    email: "suman@aspiraway.com",
+    expertise: "SOP & Essay Guidance",
+    status: "ACTIVE",
+  },
+];
+
+const counsellors = [
+  {
+    id: "c-1",
+    name: "Pooja Ray",
+    email: "pooja@aspiraway.com",
+    specialization: "Australia & Canada Admissions",
+    status: "ACTIVE",
+  },
+];
+
+/* =========================
+   COUNSELLOR & MENTOR ROUTES
+========================= */
+app.get("/api/mentors", auth, (req, res) => {
+  res.json(mentors);
+});
+
+app.get("/api/counsellors", auth, (req, res) => {
+  res.json(counsellors);
+});
 
 /* =========================
    SEED ADMIN & START SERVER
