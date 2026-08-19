@@ -17,27 +17,29 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Use 127.0.0.1 instead of localhost to prevent IPv6 loopback errors
-   const res = await axios.post(
-  "/api/auth/login",
-  { email, password },
-  { headers: { "Content-Type": "application/json" } }
-);
+      // Direct call to Render backend (bypasses missing Next.js rewrites)
+      const res = await axios.post(
+        "https://aspiraway-crm.onrender.com/api/auth/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
       // Store auth credentials on successful login
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-
-      router.push("/dashboard/admin");
+      if (res.data?.token) {
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        router.push("/dashboard/admin");
+      }
     } catch (err) {
-      console.error("LOGIN ERROR:", err?.response?.data || err.message);
+      console.error("LOGIN ERROR:", err);
 
-      // Display detailed server response or default error message
+      // Safely extract string error messages only to avoid React Object rendering crash
       const apiErrorMessage = err?.response?.data?.error;
-      if (apiErrorMessage) {
+      
+      if (typeof apiErrorMessage === "string") {
         setError(apiErrorMessage);
-      } else if (err.message === "Network Error") {
-        setError("Unable to connect to the backend server. Please check if it is running.");
+      } else if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
+        setError("Unable to connect to the backend server. Please check your connection.");
       } else {
         setError("Invalid email or password");
       }
@@ -61,7 +63,7 @@ export default function LoginPage() {
 
         {error && (
           <p style={{ color: "red", marginBottom: 12, fontSize: "14px" }}>
-            {error}
+            {String(error)}
           </p>
         )}
 
@@ -86,7 +88,11 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          style={{ width: "100%", padding: 10, cursor: loading ? "not-allowed" : "pointer" }}
+          style={{
+            width: "100%",
+            padding: 10,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
         >
           {loading ? "Logging in..." : "Login"}
         </button>
