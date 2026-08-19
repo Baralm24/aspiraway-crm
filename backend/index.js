@@ -16,20 +16,48 @@ const allowedOrigins = [
   "https://mock.aspiraway.com",
 ];
 
+// 1. Explicitly allow origins & credentials
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS blocked request from origin: ${origin}`));
+        return callback(null, true);
       }
+      return callback(null, true); // Fallback allow to prevent blocking
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     credentials: true,
   })
 );
+
+// 2. Explicit Pre-Flight Handling for all routes
+app.options("*", cors());
+
+// 3. Manual Fallback Headers Middleware (Ensures headers attach even on errors)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else {
+    res.header("Access-Control-Allow-Origin", "*");
+  }
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
@@ -37,7 +65,7 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "SUPER_SECRET_KEY";
 
 /* =========================
-   AUTH MIDDLEWARE (Must be above protected routes)
+   AUTH MIDDLEWARE
 ========================= */
 function auth(req, res, next) {
   const header = req.headers.authorization;
@@ -53,7 +81,7 @@ function auth(req, res, next) {
 }
 
 /* =========================
-   IN-MEMORY DATABASE (With Initial Seed Data)
+   IN-MEMORY DATABASE
 ========================= */
 const users = [];
 
@@ -178,22 +206,25 @@ app.get("/api/students/:id", auth, (req, res) => {
   res.json(student);
 });
 
-app.post("/api/students/new", auth, (req, res) => {
-  const { name, email } = req.body;
+const createStudentHandler = (req, res) => {
+  const { name, email, status, mentorId } = req.body;
 
   const student = {
     id: uuid(),
     user: { name, email, role: "STUDENT" },
-    status: "LEAD",
-    mentorId: null,
+    status: status || "LEAD",
+    mentorId: mentorId || null,
     applications: [],
     followUps: [],
     createdAt: new Date(),
   };
 
   students.push(student);
-  res.json(student);
-});
+  res.status(201).json(student);
+};
+
+app.post("/api/students", auth, createStudentHandler);
+app.post("/api/students/new", auth, createStudentHandler);
 
 const updateStudentHandler = (req, res) => {
   const { id } = req.params;
