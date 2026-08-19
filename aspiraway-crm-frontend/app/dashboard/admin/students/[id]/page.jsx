@@ -1,178 +1,144 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, use } from "react";
 import axios from "axios";
-import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, User, Mail, Shield, Calendar } from "lucide-react";
 
-const STATUSES = ["LEAD", "COUNSELING", "SHORTLISTING", "SOP", "APPLIED", "OFFER", "VISA", "DEPARTED"];
+export default function StudentDetailPage({ params }) {
+  // Unwrap dynamic params in Next.js App Router
+  const resolvedParams = use(params);
+  const studentId = resolvedParams.id;
 
-export default function StudentProfile() {
-  const { id } = useParams();
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
-
+  const router = useRouter();
   const [student, setStudent] = useState(null);
-  const [status, setStatus] = useState("");
-  const [phone, setPhone] = useState("");
-  const [countryPreference, setCountryPreference] = useState("");
-  const [intake, setIntake] = useState("");
-
-  const [mentors, setMentors] = useState([]);
-  const [selectedMentor, setSelectedMentor] = useState("");
-  const [appUniversity, setAppUniversity] = useState("");
-  const [appCountry, setAppCountry] = useState("");
-  const [followUpNote, setFollowUpNote] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const studentRes = await axios.get(`http://localhost:3001/api/students/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const s = studentRes.data;
-        setStudent(s);
-        setStatus(s.status);
-        setPhone(s.phone);
-        setCountryPreference(s.countryPreference);
-        setIntake(s.intake);
+    async function fetchStudentDetails() {
+      const token = localStorage.getItem("token");
 
-        const mentorRes = await axios.get("http://localhost:3001/api/mentors", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMentors(mentorRes.data);
-        setSelectedMentor(s.mentorId || "");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      try {
+        const res = await axios.get(
+          `https://aspiraway-crm.onrender.com/api/students/${studentId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setStudent(res.data);
       } catch (err) {
-        console.error("FETCH STUDENT ERROR:", err.response?.data || err.message);
+        console.error("FETCH STUDENT DETAILS ERROR:", err);
+        setError("Failed to load student details.");
+      } finally {
+        setLoading(false);
       }
     }
-    fetchData();
-  }, [id]);
 
-  if (!student) return <div className="p-10">Loading...</div>;
+    if (studentId) {
+      fetchStudentDetails();
+    }
+  }, [studentId, router]);
 
-  const updateStatus = async () => {
-    await axios.patch(
-      `http://localhost:3001/api/students/${id}/status`,
-      { status },
-      { headers: { Authorization: `Bearer ${token}` } }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+        <div className="flex items-center gap-3 text-slate-500 font-medium text-sm">
+          <svg className="animate-spin h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Loading student profile...
+        </div>
+      </div>
     );
-    alert("Status updated");
-    setStudent({ ...student, status });
-  };
+  }
 
-  const saveProfile = async () => {
-    await axios.patch(
-      `http://localhost:3001/api/students/${id}/profile`,
-      { phone, countryPreference, intake },
-      { headers: { Authorization: `Bearer ${token}` } }
+  if (error || !student) {
+    return (
+      <div className="p-8 bg-slate-50 min-h-screen font-sans">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6 font-medium"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
+          {error || "Student profile not found."}
+        </div>
+      </div>
     );
-    alert("Profile saved");
-    setStudent({ ...student, phone, countryPreference, intake });
-  };
-
-  const assignMentor = async () => {
-    await axios.patch(
-      `http://localhost:3001/api/students/${id}/assign-mentor`,
-      { mentorId: selectedMentor },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    alert("Mentor assigned");
-    setStudent({ ...student, mentorId: selectedMentor });
-  };
-
-  const addApplication = async () => {
-    const res = await axios.post(
-      `http://localhost:3001/api/students/${id}/applications`,
-      { university: appUniversity, country: appCountry },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    alert("Application added");
-    setStudent({ ...student, applications: [res.data, ...student.applications] });
-    setAppUniversity("");
-    setAppCountry("");
-  };
-
-  const addFollowUp = async () => {
-    const res = await axios.post(
-      `http://localhost:3001/api/students/${id}/followups`,
-      { note: followUpNote },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    alert("Follow-up added");
-    setStudent({ ...student, followUps: [res.data, ...student.followUps] });
-    setFollowUpNote("");
-  };
+  }
 
   return (
-    <div className="p-10 bg-gray-50 min-h-screen space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">{student.user.name}</h1>
-        <p className="text-gray-500">{student.user.email}</p>
-      </div>
+    <div className="p-8 bg-slate-50 min-h-screen font-sans text-slate-900 space-y-6">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to Students Directory
+      </button>
 
-      {/* Profile Info */}
-      <div className="bg-white p-6 rounded shadow space-y-4">
-        <h2 className="text-xl font-semibold">Profile Info</h2>
-        <Input label="Phone" value={phone} onChange={setPhone} />
-        <Input label="Country Preference" value={countryPreference} onChange={setCountryPreference} />
-        <Input label="Intake" value={intake} onChange={setIntake} />
-        <button onClick={saveProfile} className="bg-black text-white px-4 py-2 rounded">Save Profile</button>
-      </div>
+      {/* Header Card */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center font-bold text-2xl border border-blue-200">
+            {student.user?.name?.charAt(0) || "S"}
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{student.user?.name}</h1>
+            <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+              <Mail className="w-3.5 h-3.5 text-slate-400" /> {student.user?.email}
+            </p>
+          </div>
+        </div>
 
-      {/* Pipeline Status */}
-      <div className="bg-white p-6 rounded shadow space-y-4">
-        <h2 className="text-xl font-semibold">Pipeline Status</h2>
-        <div className="flex gap-4">
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="border p-2 rounded">
-            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <button onClick={updateStatus} className="bg-black text-white px-4 py-2 rounded">Update Status</button>
+        <div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
+            {student.status || "LEAD"}
+          </span>
         </div>
       </div>
 
-      {/* Mentor Assignment */}
-      <div className="bg-white p-6 rounded shadow space-y-4">
-        <h2 className="text-xl font-semibold">Assign Mentor</h2>
-        <div className="flex gap-4">
-          <select value={selectedMentor} onChange={(e) => setSelectedMentor(e.target.value)} className="border p-2 rounded w-full">
-            <option value="">-- Select Mentor --</option>
-            {mentors.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-          <button onClick={assignMentor} className="bg-black text-white px-4 py-2 rounded">Assign</button>
+      {/* Details Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Profile Overview */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h2 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">
+            Profile Details
+          </h2>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Student ID:</span>
+              <span className="font-mono text-slate-800 text-xs">{student.id}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Current Pipeline Status:</span>
+              <span className="font-semibold text-slate-800">{student.status || "LEAD"}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Role:</span>
+              <span className="font-semibold text-slate-800">{student.user?.role || "STUDENT"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* System Details */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h2 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">
+            Counseling Workflow
+          </h2>
+          <p className="text-xs text-slate-500">
+            Assigned counselor and specific pipeline stages can be updated here as student applications progress.
+          </p>
         </div>
       </div>
-
-      {/* Applications */}
-      <div className="bg-white p-6 rounded shadow space-y-4">
-        <h2 className="text-xl font-semibold">Applications</h2>
-        <div className="flex gap-2">
-          <input placeholder="University" value={appUniversity} onChange={e => setAppUniversity(e.target.value)} className="border p-2 rounded w-full"/>
-          <input placeholder="Country" value={appCountry} onChange={e => setAppCountry(e.target.value)} className="border p-2 rounded w-full"/>
-          <button onClick={addApplication} className="bg-black text-white px-4 py-2 rounded">Add</button>
-        </div>
-        <ul className="list-disc pl-5">
-          {student.applications.map((a) => <li key={a.id}>{a.university} ({a.country})</li>)}
-        </ul>
-      </div>
-
-      {/* Follow-ups */}
-      <div className="bg-white p-6 rounded shadow space-y-4">
-        <h2 className="text-xl font-semibold">Follow-ups</h2>
-        <div className="flex gap-2">
-          <input placeholder="Follow-up note" value={followUpNote} onChange={e => setFollowUpNote(e.target.value)} className="border p-2 rounded w-full"/>
-          <button onClick={addFollowUp} className="bg-black text-white px-4 py-2 rounded">Add</button>
-        </div>
-        <ul className="list-disc pl-5">
-          {student.followUps.map((f) => <li key={f.id}>{f.note}</li>)}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function Input({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="block text-sm text-gray-500 mb-1">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="border p-2 rounded w-full" />
     </div>
   );
 }
