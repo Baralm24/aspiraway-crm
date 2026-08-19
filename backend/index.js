@@ -26,7 +26,8 @@ app.use(
         callback(new Error(`CORS blocked request from origin: ${origin}`));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    // Added PATCH to allowed methods
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
@@ -143,7 +144,7 @@ app.post("/api/students/new", auth, (req, res) => {
 
   const student = {
     id: uuid(),
-    user: { name, email },
+    user: { name, email, role: "STUDENT" },
     status: "LEAD",
     mentorId: null,
     applications: [],
@@ -155,8 +156,8 @@ app.post("/api/students/new", auth, (req, res) => {
   res.json(student);
 });
 
-// Update student profile/status/mentor
-app.put("/api/students/:id", auth, (req, res) => {
+// Update student profile/status/mentor via PUT or PATCH
+const updateStudentHandler = (req, res) => {
   const { id } = req.params;
   const index = students.findIndex((s) => s.id === id);
 
@@ -164,13 +165,22 @@ app.put("/api/students/:id", auth, (req, res) => {
     return res.status(404).json({ error: "Student not found" });
   }
 
+  // Preserve nested user object if user fields are updated
+  const updatedUser = req.body.user
+    ? { ...students[index].user, ...req.body.user }
+    : students[index].user;
+
   students[index] = {
     ...students[index],
     ...req.body,
+    user: updatedUser,
   };
 
   res.json(students[index]);
-});
+};
+
+app.put("/api/students/:id", auth, updateStudentHandler);
+app.patch("/api/students/:id", auth, updateStudentHandler);
 
 /* =========================
    MENTOR ROUTES
