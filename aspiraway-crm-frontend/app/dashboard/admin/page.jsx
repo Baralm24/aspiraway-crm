@@ -31,10 +31,10 @@ export default function AdminDashboard() {
     "DEPARTED",
   ];
 
-  // Dynamic API URL resolution
+  // Render CRM Backend URL resolution
   const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL ||
-    "https://aspiraway-crm-production.up.railway.app";
+    process.env.NEXT_PUBLIC_CRM_API_URL ||
+    "https://aspiraway-crm.onrender.com";
 
   useEffect(() => {
     async function fetchStudents() {

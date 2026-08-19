@@ -2,60 +2,77 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { UserCheck, Mail, Shield } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Compass, Mail, Award } from "lucide-react";
 
-export default function CounsellorPage() {
+export default function CounsellorDashboard() {
+  const router = useRouter();
   const [counsellors, setCounsellors] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const API_BASE =
+    process.env.NEXT_PUBLIC_CRM_API_URL ||
+    "https://aspiraway-crm.onrender.com";
+
   useEffect(() => {
-    async function fetchCounsellors() {
+    async function loadCounsellors() {
       const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       try {
-        const res = await axios.get("https://aspiraway-crm.onrender.com/api/counsellors", {
+        const res = await axios.get(`${API_BASE}/api/counsellors`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCounsellors(res.data || []);
       } catch (err) {
-        console.error("Fetch counsellors error:", err);
+        console.error("Counsellor fetch error:", err.message);
       } finally {
         setLoading(false);
       }
     }
-    fetchCounsellors();
-  }, []);
+    loadCounsellors();
+  }, [router, API_BASE]);
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen font-sans">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Counsellors</h1>
-        <p className="text-xs text-slate-500 mt-1">Assigned counselors managing student application workflows</p>
+    <div className="p-8 bg-slate-50 min-h-screen text-slate-900 font-sans space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Counseling Dashboard</h1>
+        <p className="text-sm text-slate-500">Manage admissions officers and regional specialists</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {loading ? (
-          <div className="p-8 text-center text-slate-500 text-sm">Loading counsellors...</div>
+          <p className="text-slate-400">Loading counsellors...</p>
+        ) : counsellors.length === 0 ? (
+          <p className="text-slate-400">No counsellors listed.</p>
         ) : (
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-semibold text-xs uppercase tracking-wider">
-                <th className="p-4">Counsellor</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Specialization</th>
-                <th className="p-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {counsellors.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="p-4 font-semibold text-slate-800">{c.name}</td>
-                  <td className="p-4 text-slate-600"><Mail className="w-3.5 h-3.5 inline mr-1 text-slate-400" />{c.email}</td>
-                  <td className="p-4 text-slate-600">{c.specialization || "Higher Education"}</td>
-                  <td className="p-4"><span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full uppercase border border-emerald-200">ACTIVE</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          counsellors.map((c) => (
+            <div key={c.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-50 text-purple-600 rounded-lg">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">{c.name}</h3>
+                  <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                    <Mail className="w-3 h-3" /> {c.email}
+                  </p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <span className="flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-slate-400" />
+                  {c.specialization || "Admissions Specialist"}
+                </span>
+                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">
+                  {c.status || "ACTIVE"}
+                </span>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

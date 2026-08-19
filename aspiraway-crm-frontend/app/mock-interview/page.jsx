@@ -20,12 +20,18 @@ export default function EvaluatePage() {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [transcript, setTranscript] = useState('');
+  const recognitionRef = useRef(null);
+
+  // Dynamic API URL for Mock AI Service
+  const MOCK_API_BASE =
+    process.env.NEXT_PUBLIC_MOCK_API_URL ||
+    'https://aspiraway-mock-backend.onrender.com';
 
   // 1. Start Session & Fetch Dynamic Questions
   const handleStartSession = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/generate', { method: 'POST' });
+      const res = await fetch(`${MOCK_API_BASE}/api/generate`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to generate questions');
       
       const data = await res.json();
@@ -34,9 +40,10 @@ export default function EvaluatePage() {
       if (loadedQuestions.length > 0) {
         setQuestions(loadedQuestions);
       } else {
-        // Safe fallback if API returns empty
+        // Fallback standard credibility questions
         setQuestions([
-          { category: "STUDY PLAN", text: "Why did you choose this specific course and university in the UK?" }
+          { category: "STUDY PLAN", text: "Why did you choose this specific course and university in the UK?" },
+          { category: "FINANCES", text: "How are you funding your studies and living expenses in the UK?" },
         ]);
       }
 
@@ -44,8 +51,13 @@ export default function EvaluatePage() {
       setupWebcam();
     } catch (err) {
       console.error('Error starting session:', err);
-      alert('Could not load interview questions. Please check your API route.');
-    } finally {
+      // Fallback fallback questions if backend call encounters network issues
+      setQuestions([
+        { category: "STUDY PLAN", text: "Why did you choose this specific course and university in the UK?" }
+      ]);
+      setStage('INTERVIEW');
+      setupWebcam();
+    } font-sans finally {
       setIsLoading(false);
     }
   };
@@ -63,16 +75,58 @@ export default function EvaluatePage() {
     }
   };
 
-  // Clean up media stream on unmount
+  // Clean up media stream and speech recognition on unmount
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
   }, [stream]);
 
-  // 3. Timer Loop Logic
+  // 3. Speech Recognition Engine
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+
+      recognitionRef.current.onresult = (event) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+        setTranscript(currentTranscript);
+      };
+
+      recognitionRef.current.onerror = (err) => {
+        console.error('Speech recognition error:', err);
+      };
+    }
+  }, []);
+
+  // Manage Speech Recognition lifecycle based on interview phase
+  useEffect(() => {
+    if (phase === 'RECORDING' && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        // Recognition might already be running
+      }
+    } else if (phase === 'PREP' && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Engine stopped
+      }
+    }
+  }, [phase]);
+
+  // 4. Timer Loop Logic
   useEffect(() => {
     if (stage !== 'INTERVIEW') return;
 
@@ -97,7 +151,7 @@ export default function EvaluatePage() {
     return () => clearInterval(timerRef.current);
   }, [stage, phase, currentIndex, questions]);
 
-  // 4. Skip Prep Handler
+  // 5. Skip Prep Handler
   const handleSkipPrep = () => {
     if (phase === 'PREP') {
       clearInterval(timerRef.current);
@@ -106,9 +160,15 @@ export default function EvaluatePage() {
     }
   };
 
-  // 5. Next Question Handler
+  // 6. Next Question Handler
   const handleNextQuestion = () => {
     clearInterval(timerRef.current);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
     if (currentIndex + 1 < questions.length) {
       setCurrentIndex((prev) => prev + 1);
       setPhase('PREP');
@@ -120,7 +180,7 @@ export default function EvaluatePage() {
     }
   };
 
-  // SVG Circular Math
+  // SVG Circular Math Calculations
   const maxTime = phase === 'PREP' ? PREP_TIME : RECORD_TIME;
   const strokeDashoffset = 283 - (283 * timeLeft) / maxTime;
 
@@ -133,11 +193,11 @@ export default function EvaluatePage() {
   // --- STAGE 1: SESSION CONFIG ---
   if (stage === 'CONFIG') {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 font-sans">
         <div className="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-indigo-400">Aspiraway</h1>
-            <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-3 py-1 rounded-full">
+            <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-3 py-1 rounded-full font-medium">
               UK · September 2026 Intake
             </span>
           </div>
@@ -151,7 +211,7 @@ export default function EvaluatePage() {
           <button
             onClick={handleStartSession}
             disabled={isLoading}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-white disabled:opacity-50"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-white disabled:opacity-50 shadow-md"
           >
             {isLoading ? (
               <>
@@ -170,7 +230,7 @@ export default function EvaluatePage() {
   // --- STAGE 2: COMPLETED ---
   if (stage === 'COMPLETED') {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center font-sans">
         <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-full mb-6 text-emerald-400">
           <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -181,8 +241,14 @@ export default function EvaluatePage() {
           You completed all {questions.length} questions under real prep and response timer rules.
         </p>
         <button
-          onClick={() => setStage('CONFIG')}
-          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition"
+          onClick={() => {
+            setStage('CONFIG');
+            setCurrentIndex(0);
+            setPhase('PREP');
+            setTimeLeft(PREP_TIME);
+            setTranscript('');
+          }}
+          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-md"
         >
           Start New Session
         </button>
@@ -192,7 +258,7 @@ export default function EvaluatePage() {
 
   // --- STAGE 3: INTERVIEW SCREEN ---
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 md:p-10">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 md:p-10 font-sans">
       {/* Header */}
       <header className="flex justify-between items-center max-w-5xl mx-auto w-full mb-4">
         <div className="flex items-center gap-3">
@@ -206,7 +272,7 @@ export default function EvaluatePage() {
 
       {/* Main Container */}
       <main className="max-w-4xl mx-auto w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl my-auto">
-        {/* Dynamic Category & Dynamic Question Counter Badge */}
+        {/* Dynamic Category & Question Counter */}
         <div className="inline-block bg-indigo-950/80 border border-indigo-800/50 px-3 py-1 rounded-full text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-6">
           {categoryText} (QUESTION {currentIndex + 1} OF {questions.length})
         </div>
@@ -276,10 +342,15 @@ export default function EvaluatePage() {
           {/* Live Transcript Box */}
           <div className="md:col-span-2 bg-slate-950 rounded-xl p-4 border border-slate-800 flex flex-col justify-between min-h-[120px]">
             <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-                SPOKEN ANSWER (LIVE TRANSCRIPT)
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2 flex items-center justify-between">
+                <span>Spoken Answer (Live Transcript)</span>
+                {phase === 'RECORDING' && (
+                  <span className="text-xs text-red-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" /> Recording
+                  </span>
+                )}
               </span>
-              <p className="text-sm text-slate-300 italic">
+              <p className="text-sm text-slate-300 italic leading-relaxed">
                 {phase === 'PREP'
                   ? 'Get ready to speak when the timer turns blue...'
                   : transcript || 'Listening to microphone... Speak clearly.'}

@@ -11,10 +11,10 @@ const app = express();
 ========================= */
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://127.0.0.1:3000",
   "https://crm.aspiraway.com",
   "https://mock.aspiraway.com",
-  "https://aspiraway-mock-backend.onrender.com"
+  "https://aspiraway-crm.onrender.com",
+  "https://aspiraway-mock-backend.onrender.com",
 ];
 
 // 1. Explicitly allow origins & credentials

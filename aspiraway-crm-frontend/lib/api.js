@@ -1,20 +1,9 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: 'http://127.0.0.1:3001',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+export const crmApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_CRM_API_URL || 'https://aspiraway-crm.onrender.com',
 });
 
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-  return config;
+export const mockApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_MOCK_API_URL || 'https://aspiraway-mock-backend.onrender.com',
 });
-
-export default api;

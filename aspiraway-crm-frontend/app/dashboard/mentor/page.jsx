@@ -1,61 +1,76 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import api from "@/lib/api"; // Import the central api instance
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import { UserCheck, BookOpen, Clock } from "lucide-react";
 
-export default function MentorPage() {
+export default function MentorDashboard() {
+  const router = useRouter();
   const [mentors, setMentors] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const API_BASE =
+    process.env.NEXT_PUBLIC_CRM_API_URL ||
+    "https://aspiraway-crm.onrender.com";
+
   useEffect(() => {
-    async function fetchMentors() {
+    async function loadMentors() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       try {
-        // Automatically calls https://aspiraway-crm.onrender.com/api/mentors
-        const res = await api.get("/api/mentors");
+        const res = await axios.get(`${API_BASE}/api/mentors`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setMentors(res.data || []);
       } catch (err) {
-        console.error("Error fetching mentors:", err);
+        console.error("Mentor fetch error:", err.message);
       } finally {
         setLoading(false);
       }
     }
-    fetchMentors();
-  }, []);
+    loadMentors();
+  }, [router, API_BASE]);
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 text-slate-900">Mentors</h1>
+    <div className="p-8 bg-slate-50 min-h-screen text-slate-900 font-sans space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Mentors Workspace</h1>
+        <p className="text-sm text-slate-500">Track assigned academic advisors and mentors</p>
+      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {loading ? (
-          <div className="p-6 text-slate-500 text-sm">Loading mentors...</div>
+          <p className="text-slate-400">Loading active mentors...</p>
         ) : mentors.length === 0 ? (
-          <div className="p-6 text-slate-500 text-sm">No mentors found.</div>
+          <p className="text-slate-400">No mentors assigned.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-              <tr>
-                <th className="p-4">Mentor</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Expertise</th>
-                <th className="p-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {mentors.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50">
-                  <td className="p-4 font-medium text-slate-800">{m.name}</td>
-                  <td className="p-4 text-slate-600">{m.email}</td>
-                  <td className="p-4 text-slate-600">{m.expertise}</td>
-                  <td className="p-4">
-                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-full border border-emerald-200">
-                      {m.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          mentors.map((m) => (
+            <div key={m.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">{m.name}</h3>
+                  <p className="text-xs text-slate-500">{m.email}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <span className="flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                  {m.expertise || "General Advisor"}
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
+                  {m.status || "ACTIVE"}
+                </span>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
