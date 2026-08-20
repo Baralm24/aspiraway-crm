@@ -9,8 +9,6 @@ export default function StudentDashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
     let isMounted = true;
 
     api.get('/student/readiness')
