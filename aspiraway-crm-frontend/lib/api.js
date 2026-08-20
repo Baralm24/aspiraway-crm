@@ -1,12 +1,21 @@
 import axios from 'axios';
 
-export const crmApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_CRM_API_URL || 'https://aspiraway-crm.onrender.com',
+// Get base host from env
+const rawBaseUrl =
+  process.env.NEXT_PUBLIC_CRM_API_URL ||
+  process.env.NEXT_PUBLIC_MOCK_API_URL ||
+  'https://aspiraway-crm.onrender.com';
+
+// Clean trailing slashes and ensure /api prefix is present
+const BASE_URL = rawBaseUrl.replace(/\/+$/, '') + '/api';
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-export const mockApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_MOCK_API_URL || 'https://aspiraway-mock-backend.onrender.com',
-});
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
@@ -17,5 +26,4 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ADD THIS AT THE BOTTOM OF lib/api.js
 export default api;

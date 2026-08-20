@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Users, Search, ExternalLink } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
+import api from "@/lib/api";
 
 export default function StudentsDirectory() {
   const router = useRouter();
@@ -11,31 +11,25 @@ export default function StudentsDirectory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_CRM_API_URL ||
-    "https://aspiraway-crm.onrender.com";
-
   useEffect(() => {
     async function loadData() {
-      const token = localStorage.getItem("token");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) {
         router.push("/login");
         return;
       }
 
       try {
-        const res = await axios.get(`${API_BASE}/api/students`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get("/students");
         setStudents(res.data || []);
       } catch (err) {
-        console.error("Error fetching students:", err.message);
+        console.error("Error fetching students:", err?.message || err);
       } finally {
         setLoading(false);
       }
     }
     loadData();
-  }, [router, API_BASE]);
+  }, [router]);
 
   const filtered = students.filter(
     (s) =>
@@ -93,6 +87,7 @@ export default function StudentsDirectory() {
                   </td>
                   <td className="py-3.5 px-5 text-right">
                     <button
+                      type="button"
                       onClick={() => router.push(`/dashboard/students/${s.id}`)}
                       className="text-blue-600 hover:underline flex items-center gap-1 justify-end ml-auto"
                     >

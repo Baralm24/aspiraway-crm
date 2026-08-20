@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import axios from "axios";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus } from "lucide-react";
+import api from "@/lib/api";
 
 export default function AddStudentPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function AddStudentPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
       if (!token) {
         setError("Session expired. Please log in again.");
@@ -26,24 +26,17 @@ export default function AddStudentPage() {
         return;
       }
 
-      await axios.post(
-        "https://aspiraway-crm.onrender.com/api/students/new",
-        { name, email },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // Use the centralized api client (automatically handles base URL and headers)
+      await api.post("/students", { name, email });
 
       // Redirect back to dashboard after successfully adding student
       router.push("/dashboard/admin");
+      router.refresh();
     } catch (err) {
       console.error("ADD STUDENT ERROR:", err);
-      const apiError = err?.response?.data?.error;
+      const apiError = err?.response?.data?.message || err?.response?.data?.error;
       setError(
-        typeof apiError === "string" ? apiError : "Failed to add student"
+        typeof apiError === "string" ? apiError : "Failed to add student. Please verify backend state."
       );
     } finally {
       setLoading(false);
@@ -55,6 +48,7 @@ export default function AddStudentPage() {
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
         {/* Back Button */}
         <button
+          type="button"
           onClick={() => router.back()}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 mb-6 transition-colors"
         >
@@ -87,7 +81,7 @@ export default function AddStudentPage() {
             </label>
             <input
               type="text"
-              placeholder="e.g. Manish Baral"
+              placeholder="e.g. John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
