@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
+
+export const dynamic = 'force-dynamic';
 
 export default function StudentDashboard() {
   const [data, setData] = useState(null);
@@ -11,7 +12,12 @@ export default function StudentDashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    api.get('/student/readiness')
+    // Load API instance dynamically inside client runtime only
+    import('@/lib/api')
+      .then((module) => {
+        const clientApi = module.default;
+        return clientApi.get('/student/readiness');
+      })
       .then((res) => {
         if (isMounted) {
           setData(res.data);
