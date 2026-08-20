@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -12,7 +11,9 @@ import {
   Search,
   Filter,
   ExternalLink,
+  LogOut,
 } from "lucide-react";
+import api from "@/lib/api";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -31,11 +32,6 @@ export default function AdminDashboard() {
     "DEPARTED",
   ];
 
-  // Render CRM Backend URL resolution
-  const API_BASE =
-    process.env.NEXT_PUBLIC_CRM_API_URL ||
-    "https://aspiraway-crm.onrender.com";
-
   useEffect(() => {
     async function fetchStudents() {
       const token =
@@ -46,9 +42,8 @@ export default function AdminDashboard() {
       }
 
       try {
-        const res = await axios.get(`${API_BASE}/api/students`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // Automatically handles BASE_URL and Bearer headers via lib/api
+        const res = await api.get("/students");
         setStudents(res.data || []);
       } catch (err) {
         console.error("FETCH ERROR:", err.response?.data || err.message);
@@ -61,7 +56,14 @@ export default function AdminDashboard() {
       }
     }
     fetchStudents();
-  }, [router, API_BASE]);
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
+    router.refresh();
+  };
 
   const statusCounts = STATUSES.reduce((acc, s) => {
     acc[s] = students.filter((st) => st.status === s).length;
@@ -77,7 +79,7 @@ export default function AdminDashboard() {
   return (
     <div className="p-8 bg-slate-50 min-h-screen text-slate-900 font-sans space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             Mentorship CRM Dashboard
@@ -86,13 +88,24 @@ export default function AdminDashboard() {
             Track student applications, pipeline stages, and counseling workflows.
           </p>
         </div>
-        <button
-          onClick={() => router.push("/dashboard/admin/students/new")}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Student
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/admin/students/new")}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Student
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold text-slate-600 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-lg shadow-sm transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Metric Cards */}
@@ -162,7 +175,10 @@ export default function AdminDashboard() {
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
-            <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50">
+            <button
+              type="button"
+              className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50"
+            >
               <Filter className="w-4 h-4" />
               Filter
             </button>
@@ -211,6 +227,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <button
+                        type="button"
                         onClick={() =>
                           router.push(`/dashboard/admin/students/${s.id}`)
                         }
