@@ -9,6 +9,9 @@ export default function StudentDashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Guards against running during static site generation / server-side pre-render
+    if (typeof window === 'undefined') return;
+
     let isMounted = true;
 
     api.get('/student/readiness')
