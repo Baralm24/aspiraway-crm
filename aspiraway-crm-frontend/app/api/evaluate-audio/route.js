@@ -3,10 +3,6 @@ import OpenAI from 'openai';
 
 export const dynamic = 'force-dynamic';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 // System prompt tailored for UK Pre-CAS / Visa compliance
 const PRE_CAS_SYSTEM_PROMPT = `
 You are an expert UK Higher Education Compliance and Pre-CAS Interview Evaluator.
@@ -32,6 +28,18 @@ Return ONLY a valid JSON object in this format:
 
 export async function POST(request) {
   try {
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { success: false, error: 'Server misconfiguration: OPENAI_API_KEY is missing.' },
+        { status: 500 }
+      );
+    }
+
+    // ✅ Instantiate inside the POST handler to avoid build-time errors
+    const openai = new OpenAI({ apiKey });
+
     const formData = await request.formData();
     const audioFile = formData.get('audio'); // Audio or extracted media file from web browser
     const questionText = formData.get('question') || 'Pre-CAS Interview Question';
