@@ -5,6 +5,7 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'https://aspiraway-mock-backend.onrender.com';
 
+// Ensure 'const' is present here
 const api = axios.create({
   baseURL: BASE_URL,
 });
