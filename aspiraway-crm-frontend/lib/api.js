@@ -1,17 +1,16 @@
 import axios from "axios";
 
-// Grab raw base URL or fallback to production
-const rawBaseUrl =
+// Fallback cleans up leading/trailing spaces or protocol typos
+const rawBaseUrl = (
   process.env.NEXT_PUBLIC_CRM_API_URL ||
-  process.env.NEXT_PUBLIC_MOCK_API_URL ||
-  "https://aspiraway-crm.onrender.com";
+  "https://aspiraway-crm.onrender.com"
+).trim();
 
-// Ensure protocol exists (prevents Next.js relative routing errors)
-const formattedUrl = rawBaseUrl.startsWith("http")
+// Enforce clean protocol
+const formattedUrl = rawBaseUrl.startsWith("http://") || rawBaseUrl.startsWith("https://")
   ? rawBaseUrl
-  : `https://${rawBaseUrl}`;
+  : `https://${rawBaseUrl.replace(/^https?:?\/*/, "")}`;
 
-// Strip trailing slashes and ensure exactly ONE '/api' at the end
 const cleanUrl = formattedUrl.replace(/\/+$/, "");
 const BASE_URL = cleanUrl.endsWith("/api") ? cleanUrl : `${cleanUrl}/api`;
 
